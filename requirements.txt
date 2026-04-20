@@ -1,0 +1,12 @@
+# AMD version
+--extra-index-url https://download.pytorch.org/whl/rocm7.2
+torch==2.11.0+rocm7.2
+torchaudio==2.11.0+rocm7.2
+# NVIDIA version
+# --extra-index-url https://download.pytorch.org/whl/cu126
+# torch==2.11.0+cu126
+# torchaudio==2.11.0+cu126
+
+numpy>=1.23
+pandas>=3.0.2
+mamba-ssm>=2.3.1

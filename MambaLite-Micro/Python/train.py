@@ -31,7 +31,7 @@ class TinyMambaHAR(nn.Module):
 
 def load_har_data(data_dir):
     def load_txt(file_path):
-        return pd.read_csv(file_path, delim_whitespace=True, header=None).values
+        return pd.read_csv(file_path, sep=r'\s+', engine='python', header=None).values
 
     X_train = load_txt(os.path.join(data_dir, 'train', 'X_train.txt'))
     y_train = load_txt(os.path.join(data_dir, 'train', 'y_train.txt')).squeeze() - 1
@@ -79,12 +79,12 @@ def evaluate(model, dataloader, criterion):
     return total_loss / len(dataloader), correct / total
 
 def main():
-    data_dir = r'path/to/UCI HAR Dataset'
+    data_dir = r'UCI HAR Dataset'
     batch_size = 64
     epochs = 20
     lr = 1e-3
     hidden_dim = 64
-    model_save_path = "path/to/output/mamba_har_model.pth"
+    model_save_path = "MambaLite-Micro/Python/mamba_har_model.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     X_train, y_train, X_test, y_test = load_har_data(data_dir)
