@@ -61,4 +61,4 @@ def export_pth_to_header(pth_path, output_header="mamba_weights.h"):
         f.write("#endif // MAMBA_WEIGHTS_H\n")
 
 if __name__ == "__main__":
-    export_pth_to_header("path/to/model.pth", "path/to/output/mamba_weights.h")
+    export_pth_to_header("MambaLite-Micro/Python/mamba_har_model.pt", "MambaLite-Micro/csrc/mamba_weights.h")
