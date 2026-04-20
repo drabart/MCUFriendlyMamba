@@ -1,8 +1,11 @@
 */.venv/
 *.aux
 *.bcf
+*.bbl
+*.blg
 *.fdb_latexmk
 *.fls
 *.log
 *.run.xml
 *.synctex.gz
+.vscode/

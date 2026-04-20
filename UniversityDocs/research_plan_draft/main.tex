@@ -10,29 +10,75 @@
 \geometry{verbose,tmargin=3cm,bmargin=3cm,lmargin=3cm,rmargin=3cm}
 
 \title{
-    Research Plan for CSE3000 Research Project\\
-    {\Large \textit{(Temporary) Title of Your Project}}
+    Draft Research Plan for CSE3000 Research Project\\
+    {\Large \textit{MCU-Friendly Mamba}}
 }
-\author{Your Name}
+\author{Bartosz Drabinski}
 
 \begin{document}
 \maketitle
 
 
 \section*{Background of the research}
-In this section you should give some background of your research area. What is the problem you are tackling? Why is it worth to solve it? Who has done some work in this area? What have they achieved? Include references to previous work. Also, describe what is still missing (the knowledge gap) -- this may be much more complex and further into the future than your planned contribution.
+The research concerns exploring the implementations of Mamba machine learning architecture \cite{mamba} inference on microcontrollers. The main objective behind this task is being able to utilize benefits of this architecture on edge devices, which are resource-constrained. This allows for more efficient performing tasks such as recognizing a keyword in audio data, or detecting human activities based on a phone's IMU. 
 
+There have already been a few papers published on this topic, such as "MambaLite-Micro: Memory-Optimized Mamba Inference on MCUs" \cite{MambaLite-Micro2025}. While they created a basic implementation of Mamba running on an MCU, they did not explore many possibilities for optimization of the inference further. Those mainly include optimizations reducing maximum memory usage, or model quantization.
 
 \section*{Research Question}
-Explicitly state the main question you aim to answer or the hypothesis you aim to test. Argue why it is reasonable to achieve in the time frame of your project and make references to previous work that backs your arguments. Explain what you expect to accomplish by working on this project.  
+The main question I aim to answer is: "What optimizations can be implemented to improve the performance of Mamba inference on microcontrollers, and what are the trade-offs between memory usage, speed and accuracy?".
 
-Break down the main question(s) into sub-questions -- this will help you put more structure into your research. Aim to formulate (sub-)questions that are sufficiently concrete, such that other students would be able to answer them with a single experiment or proof, and that you would be able to judge whether they have done well. For instance, it is better to say: "under which conditions (e.g. problem size) is method A better than method B?" than "How can you do better than method B?". Include objective criteria for success. For instance, ``lower runtime than algorithm A'', ``better quality than method B'' or ``using fewer data samples than C''. Try to imagine how you would present the ideal outcome. For instance, a scatter plot or a histogram.
+There already exist a base for performing experiments, which was created in MambaLite-Micro \cite{MambaLite-Micro2025}. It allows for creating and training Mamba models on a PC's GPU, and transferring the model onto a micro-controller. This allows me to run experiments without first having to figure out the integration from training to uploading to MCU. I believe that with a well planned research, and experiments completing them in the 10 weeks of the project is reasonable. 
+
+I expect to have tested model quantization, as well as research at least 2 of the 3 memory optimization strategies already suggested. If the time allows, it would be worth looking into more types of optimizations. I hope that the result of that will be an improved implementation of the Mamba inference.
+
+Here are the sub-questions that can be posed to split the main question:
+\begin{itemize}
+    \item How does quantization on different levels (e.g. float8, int8, int4) affect the speed and accuracy of Mamba inference on microcontrollers?
+    \item What is the main memory bottleneck for the current implementation?
+    \item Can low-rank factorization be applied to reduce peak memory usage?
+    \item Can block-wise updates be applied to reduce peak memory usage?
+    \item Can rolling state caching be applied to reduce peak memory usage?
+\end{itemize}
 
 \section*{Method}
-In this section you should outline how you intend to go
-about accomplishing the aims you have set in the previous
-section. Try to break your aims down into small, achievable tasks. 
-Which tools, software, or data are you going to use? With whom do you intend to collaborate on what (if anyone)? What are their tasks? What are your tasks? Are there any dependencies between these tasks? Also, make sure to think how you will decide if a task has been completed successfully.
+
+The research that needs to be done for this research project is nearly entirely separate from the other parts. They are concern different types of models and are more focused on increasing models accuracy, robustness and extending capabilities, while for this one the main focus is performance. While there is no direct collaboration, the general theme of running a ML model on an MCU is shared between them, which would allow for exchanging our general thoughts and helping each other if we get stuck (especially when it concerns hardware).
+
+For my part of the project I will need to mostly need to work with the previous paper's code. It has a training phase that uses Python with PyTorch, and an inference phase that runs on an MCU and is written in C. Additionally to allow for fast training I will need to setup PyTorch to be able to interact with my GPU. For the datasets that I will use I initially plan to start with ones from the MambaLite-Micro, namely HAR dataset \cite{human_activity_recognition_using_smartphones_240} and speech commands dataset \cite{warden2018speechcommandsdatasetlimitedvocabulary}
+\\
+I decided to divide the tasks into 3 categories: research, experiment and writing.
+\\
+Research tasks:
+\begin{itemize}
+    \item Find at least 5 relevant papers from the original Mamba paper to read through to get a better matter understanding.
+    \item Look through references of the MambaLite-Micro and read thro
+\end{itemize}
+
+Experiment tasks:
+\begin{itemize}
+    \item Setup a PyTorch environment
+    \item Upload a model onto an MCU
+    \item Design experiments for each of the sub-questions posed above
+    \item Conduct each experiment
+    \item Draw conclusions from the experiments
+\end{itemize}
+
+Writing tasks:
+\begin{itemize}
+    \item Write the paper
+    \begin{itemize}
+        \item decide on the chapter names and order
+        \item write base for all the chapters
+        \item add experiment results
+        \item add conclusion of the research
+    \end{itemize}
+    \item Create the poster
+    \begin{itemize}
+        \item think of what should be presented
+        \item create good looking figures
+        \item write a coherent story that gives a good project overview
+    \end{itemize}
+\end{itemize} 
 
 \section*{Planning of the research project}
 Try to estimate how long you will spend on each task, and create a timetable for each sub-task. We do not expect you to provide an exact date for every single activity but you should indicate your general planning for this quarter. Include all of the course deadlines (midterm presentation, paper draft v1 for peer review and supervisor feedback, paper draft v2 for feedback from responsible professor, etc.) from Brightspace. If you haven't done so yet, this is a good opportunity to look through all assignments and the Research Project schedule. Make sure to consider the time for writing and don't postpone this to the latest moment; we suggest that you introduce for yourself personal deadlines when you aim to complete every section. This assignment aims to help you organize your work and stay on track -- you may find it useful to print your schedule. Structure this section as a table with every important date; you should at least including the following:
