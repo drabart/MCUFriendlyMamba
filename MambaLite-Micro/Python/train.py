@@ -13,20 +13,64 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 import pandas as pd
 import numpy as np
 from mamba_ssm.modules.mamba_simple import Mamba
+# from mamba_ssm.modules.mamba2_simple import Mamba2Simple
+
+# class TinyMambaHAR(nn.Module):
+#     def __init__(self, input_dim, mamba_channel_width, num_classes=6):
+#         super().__init__()
+#         self.linear_in = nn.Linear(input_dim, mamba_channel_width)
+#         self.conv = nn.Sequential(
+#             nn.Conv1d(input_dim, mamba_channel_width, 4, padding='same'),
+#             nn.ReLU(),
+#             nn.Dropout(0.2),
+#             nn.Conv1d(mamba_channel_width, mamba_channel_width, 4, padding='same'),
+#             nn.ReLU(),
+#             nn.AdaptiveAvgPool1d(1) # Squashes T=10 down to 1
+#         )
+#         # self.mamba = Mamba(d_model=mamba_channel_width, d_state=1, expand=1)
+#         # self.rnn = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
+#         self.pool = nn.AdaptiveAvgPool1d(1)
+#         self.classifier = nn.Linear(mamba_channel_width, num_classes)
+
+#     def forward(self, x):
+#         x = self.linear_in(x)      # [B, T, H]
+#         x = self.conv(x)           # [B, H, 1]
+#         # x = self.mamba(x)         # [B, T, H]
+#         # x, _ = self.rnn(x)
+#         x = x.transpose(1, 2)      # [B, H, T]
+#         x = self.pool(x).squeeze(-1)
+#         return self.classifier(x)
 
 class TinyMambaHAR(nn.Module):
-    def __init__(self, input_dim=57, hidden_dim=64, seq_len=10, num_classes=6):
+    def __init__(self, input_dim, mamba_channel_width, num_classes=6):
         super().__init__()
-        self.linear_in = nn.Linear(input_dim, hidden_dim)
-        self.mamba = Mamba(d_model=hidden_dim)
+        # input_dim = 57, mamba_channel_width = 57 (based on your setup)
+        
+        self.conv = nn.Sequential(
+            # Input dim is 57. Kernel is 4.
+            nn.Conv1d(input_dim, mamba_channel_width, 4, padding='same'),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Conv1d(mamba_channel_width, mamba_channel_width, 4, padding='same'),
+            nn.ReLU()
+        )
+        
         self.pool = nn.AdaptiveAvgPool1d(1)
-        self.classifier = nn.Linear(hidden_dim, num_classes)
+        self.classifier = nn.Linear(mamba_channel_width, num_classes)
 
     def forward(self, x):
-        x = self.linear_in(x)      # [B, T, H]
-        x = self.mamba(x)          # [B, T, H]
-        x = x.transpose(1, 2)      # [B, H, T]
-        x = self.pool(x).squeeze(-1)
+        # 1. x arrives as [Batch, 10, 57] 
+        # 2. Swap dims for Conv1d: [Batch, 57, 10]
+        x = x.transpose(1, 2) 
+        
+        # 3. Run through Convolutions
+        x = self.conv(x)           # Output: [Batch, 57, 10]
+        
+        # 4. Global Average Pool: [Batch, 57, 10] -> [Batch, 57, 1]
+        x = self.pool(x)
+        
+        # 5. Remove the last dim and classify
+        x = x.squeeze(-1)          # Output: [Batch, 57]
         return self.classifier(x)
 
 def load_har_data(data_dir):
@@ -44,6 +88,8 @@ def load_har_data(data_dir):
 
     X_train = prepare(X_train)
     X_test = prepare(X_test)
+
+    # print(X_train.shape, type(X_train), X_train.dtype)
 
     y_train = torch.tensor(y_train, dtype=torch.long)
     y_test = torch.tensor(y_test, dtype=torch.long)
@@ -83,7 +129,7 @@ def main():
     batch_size = 64
     epochs = 20
     lr = 1e-3
-    hidden_dim = 64
+    # hidden_dim = 128
     model_save_path = "MambaLite-Micro/Python/mamba_har_model.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -97,7 +143,7 @@ def main():
     val_loader = DataLoader(val_ds, batch_size=batch_size)
     test_loader = DataLoader(test_ds, batch_size=batch_size)
 
-    model = TinyMambaHAR(input_dim=57, hidden_dim=hidden_dim, seq_len=10, num_classes=6).to(device)
+    model = TinyMambaHAR(input_dim=57, mamba_channel_width=64, num_classes=6).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
