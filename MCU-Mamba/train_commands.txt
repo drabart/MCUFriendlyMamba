@@ -1,11 +1,11 @@
 # HAR dataset
 
-python -m train.train --dataset har --dataset-dir "../UCI HAR Dataset" --model mamba-raw --batch-size 32 --validate-batch-size 1000
+python train.py --dataset har --dataset-dir "../UCI HAR Dataset" --model mamba-raw --batch-size 32 --validate-batch-size 1000
 
-python -m train.train --dataset har --dataset-dir "../UCI HAR Dataset" --model mamba-raw --batch-size 32 --validate-batch-size 1000 --quantize
+python train.py --dataset har --dataset-dir "../UCI HAR Dataset" --model mamba-raw --batch-size 32 --validate-batch-size 1000 --quantize
 
 # KWS dataset
 
-python -m train.train --dataset kws --dataset-dir "../kws_dataset" --model mamba-raw --batch-size 32 --validate-batch-size 10000
+python train.py --dataset kws --dataset-dir "../kws_dataset" --model mamba-raw --batch-size 32 --validate-batch-size 10000
 
-python -m train.train --dataset kws --dataset-dir "../kws_dataset" --model mamba-raw --batch-size 32 --validate-batch-size 10000 --quantize
+python train.py --dataset kws --dataset-dir "../kws_dataset" --model mamba-raw --batch-size 32 --validate-batch-size 10000 --quantize
