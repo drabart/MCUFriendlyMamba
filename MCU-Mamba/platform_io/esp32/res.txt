@@ -1,0 +1,20 @@
+50k
+I (26579) MAIN_APP: data_const: sum=6367960, elapsed: 12141 us (12.141 ms)
+I (26579) MAIN_APP: data_mut:   sum=6367960, elapsed: 5630 us (5.630 ms)
+
+100k
+I (6549) MAIN_APP: data_const: sum=12742320, elapsed: 24278 us (24.278 ms)
+I (6559) MAIN_APP: data_mut:   sum=12742320, elapsed: 11268 us (11.268 ms)
+
+165k
+I (12091) MAIN_APP: data_const: sum=21029340, elapsed: 40052 us (40.052 ms)
+I (12111) MAIN_APP: data_mut:   sum=21029340, elapsed: 18586 us (18.586 ms)
+
+300k
+I (3656) MAIN_APP: data_const: sum=38246416, elapsed: 72825 us (72.825 ms)
+
+1M
+I (4581) MAIN_APP: data_const: sum=127493856, elapsed: 242731 us (242.731 ms)
+
+1.8M
+I (19934) MAIN_APP: data_const: sum=229493856, elapsed: 436903 us (436.903 ms)
