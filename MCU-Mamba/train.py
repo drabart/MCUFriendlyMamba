@@ -9,10 +9,14 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
+from brevitas.export import export_onnx_qcdq
+import onnxruntime as ort
+import numpy as np
 import os
 import time
 from data import load_har_data, load_mnist_data, load_speechcommands_data
-from models import Linear, TinyMamba, TinyMambaHAR
+from models import TinyMamba
+
 
 def train(model, device, train_loader, optimizer, epoch, print_stats=False, log_interval=10, dry_run=False):
     model.train()
@@ -36,29 +40,6 @@ def train(model, device, train_loader, optimizer, epoch, print_stats=False, log_
             )
             if dry_run:
                 break
-
-def quantize(model):
-    try:
-        import torchao.quantization as tq
-    except ImportError as exc:
-        raise ImportError(
-            "torchao is required for quantization. Install it with: pip install torchao"
-        ) from exc
-
-    model.eval()
-
-    def linear_filter(module, _fqn):
-        if isinstance(module, torch.nn.Linear):
-            return module.in_features > 1
-        
-        return False
-    
-    config = tq.Int8WeightOnlyConfig(version=2)
-    # config = tq.Int4WeightOnlyConfig(int4_packing_format="plain_int32")
-
-    tq.quantize_(model, config, filter_fn=linear_filter)
-
-    return model
 
 
 def test(model, device, test_loader, print_stats=False):
@@ -250,10 +231,10 @@ def main():
         output_size = 35
         input_dim = 40
 
-        d_model = 128
+        d_model = 64
         d_state = 32
         d_conv = 4
-        expand = 4
+        expand = 2
         train_ds, val_ds, test_ds = load_speechcommands_data(dataset_dir)
     else:
         sys.exit(f"Unknown dataset: {dataset_type}. Choose 'mnist', 'kws' or 'har'")
@@ -270,7 +251,7 @@ def main():
         case "mamba-orig":
             model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand, output_size=output_size).to(device)
         case "mamba-raw":
-            model = TinyMambaHAR(input_dim=input_dim,d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand, output_size=output_size).to(device)
+            model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand, output_size=output_size).to(device)
         case _:
             sys.exit(
                 "Please specify a correct model with the environment variable MODEL"
@@ -307,13 +288,37 @@ def main():
         if args.dry_run:
             break
 
-    torch.save(model, pt_path)
+    if args.export_onnx:
+        # --- Export to ONNX (QCDQ) ---
+        print("Exporting model")
+        model.eval()
+        inputs, _ = next(iter(validate_loader_single))
+        dummy_input = inputs.to(device)
 
-    if args.quantize:
-        print("Quantizing model")
-        model = quantize(model)
-        test(model, device, validate_loader, print_stats=True)
-        torch.save(model.state_dict(), pt_path.replace(".pt", ".quant.pt"))
+        export_onnx_qcdq(
+            model, 
+            args=dummy_input, 
+            export_path=onnx_path, 
+            opset_version=13,
+        )
+
+        # --- Verify Accuracy of the Exported ONNX Model ---
+        def evaluate_onnx(onnx_path, loader):
+            sess = ort.InferenceSession(onnx_path)
+            input_name = sess.get_inputs()[0].name
+            correct = 0
+            for data, target in loader:
+                # ensure numpy float32 on CPU
+                input_data = data.cpu().numpy().astype(np.float32)
+                output = sess.run(None, {input_name: input_data})[0]
+                pred = np.argmax(output, axis=1)
+                correct += np.sum(pred == target.numpy())
+            return 100. * correct / len(loader.dataset)
+
+        print(f"Accuracy AFTER export (ONNX Runtime): {evaluate_onnx(onnx_path, validate_loader_single):.2f}%")
+
+    # for name, module in model.named_modules():
+    #     print(f"{name}: {module}")
 
 if __name__ == "__main__":
     main()
