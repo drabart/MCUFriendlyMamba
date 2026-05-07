@@ -10,13 +10,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from brevitas.export import export_onnx_qcdq
+import brevitas.nn as qnn
 import onnxruntime as ort
 import numpy as np
 import os
 import time
+import json
 from data import load_har_data, load_mnist_data, load_speechcommands_data
 from models import TinyMamba
-
+import litert_torch
 
 def train(model, device, train_loader, optimizer, epoch, print_stats=False, log_interval=10, dry_run=False):
     model.train()
@@ -162,14 +164,8 @@ def main():
     parser.add_argument(
         "--export-onnx",
         action="store_true",
-        default=True,
-        help="For Saving the current Model in ONNX format",
-    )
-    parser.add_argument(
-        "--full-test-onnx",
-        action="store_true",
         default=False,
-        help="Test the onnx exported model fully against the pytorch model",
+        help="For Saving the current Model in ONNX format",
     )
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -265,7 +261,7 @@ def main():
         model_dir = "/tmp"
 
     onnx_path = os.path.join(model_dir, model_name + dry_run_name + ".onnx")
-    pt_path = os.path.join(model_dir, model_name + dry_run_name + ".pt")
+    tflite_path = os.path.join(model_dir, model_name + dry_run_name + ".tflite")
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
@@ -288,16 +284,17 @@ def main():
         if args.dry_run:
             break
 
+    inputs, _ = next(iter(validate_loader_single))
+    sample_input = inputs.to(device)
+
     if args.export_onnx:
         # --- Export to ONNX (QCDQ) ---
         print("Exporting model")
         model.eval()
-        inputs, _ = next(iter(validate_loader_single))
-        dummy_input = inputs.to(device)
 
         export_onnx_qcdq(
             model, 
-            args=dummy_input, 
+            args=sample_inputs, 
             export_path=onnx_path, 
             opset_version=13,
         )
@@ -317,8 +314,88 @@ def main():
 
         print(f"Accuracy AFTER export (ONNX Runtime): {evaluate_onnx(onnx_path, validate_loader_single):.2f}%")
 
-    # for name, module in model.named_modules():
-    #     print(f"{name}: {module}")
+    def extract_int_weights(module):
+        quant_weight = module.weight_quant(module.weight)
+
+        # Brevitas returns an IntQuantTensor here, so use its integer view when available.
+        if hasattr(quant_weight, "int"):
+            return quant_weight.int()
+
+        # Fallback for other quant tensor types: reconstruct integers from value/scale/zp.
+        scale = quant_weight.scale
+        zero_point = quant_weight.zero_point
+        return torch.round(quant_weight.value / scale + zero_point).to(torch.int8)
+
+    int_weights_by_layer = {}
+    model_params = {}
+    
+    for name, module in model.named_modules():
+        if isinstance(module, qnn.QuantLinear):
+            int_weights = extract_int_weights(module)
+            int_weights_by_layer[name] = int_weights
+            min_val = int_weights.min().item()
+            max_val = int_weights.max().item()
+            print(f"{name} int weights range: ({min_val}, {max_val})")
+            print(f"{int_weights}\n")
+            
+            # Extract quantization parameters
+            quant_weight = module.weight_quant(module.weight)
+            scale_val = quant_weight.scale.item() if hasattr(quant_weight.scale, 'item') else float(quant_weight.scale)
+            zero_point_val = quant_weight.zero_point.item() if hasattr(quant_weight.zero_point, 'item') else float(quant_weight.zero_point)
+            
+            model_params[name] = {
+                "type": "QuantLinear",
+                "in_features": module.in_features,
+                "out_features": module.out_features,
+                "bias": module.bias is not None,
+                "weights": int_weights.cpu().tolist(),
+                "weights_shape": list(int_weights.shape),
+                "weights_dtype": "int8",
+                "weight_scale": scale_val,
+                "weight_zero_point": zero_point_val,
+                "weight_bit_width": 4,
+                "weights_range": (min_val, max_val),
+            }
+            
+            if module.bias is not None:
+                model_params[name]["bias"] = module.bias.data.cpu().tolist()
+    
+    # Extract SSM parameters
+    for name, module in model.named_modules():
+        if hasattr(module, 'A_log') and hasattr(module, 'D'):
+            if name not in model_params:
+                model_params[name] = {}
+            model_params[name]["type"] = "QuantSSM"
+            model_params[name]["A_log"] = module.A_log.data.cpu().tolist()
+            model_params[name]["D"] = module.D.data.cpu().tolist()
+            model_params[name]["d_inner"] = module.d_inner
+            model_params[name]["d_state"] = module.d_state
+    
+    # Create overall model metadata
+    model_metadata = {
+        "model_type": "TinyMamba",
+        "dataset": dataset_type,
+        "model_variant": model_type,
+        "input_dim": input_dim,
+        "d_model": d_model,
+        "d_state": d_state if dataset_type != "mnist" else None,
+        "d_conv": d_conv if dataset_type != "mnist" else None,
+        "expand": expand if dataset_type != "mnist" else None,
+        "output_size": output_size,
+        "training_epochs": args.epochs,
+        "batch_size": args.batch_size,
+    }
+    
+    # Save to JSON
+    model_export_data = {
+        "metadata": model_metadata,
+        "layers": model_params,
+    }
+    
+    json_export_path = os.path.join(model_dir, model_name + dry_run_name + "_params.json")
+    with open(json_export_path, 'w') as f:
+        json.dump(model_export_data, f, indent=2)
+    print(f"\nModel parameters exported to: {json_export_path}")
 
 if __name__ == "__main__":
     main()
