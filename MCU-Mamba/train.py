@@ -222,6 +222,8 @@ def main():
         d_state = 32
         d_conv = 4
         expand = 2
+        bit_width = 8
+
         train_ds, val_ds, test_ds = load_har_data(dataset_dir)
     elif dataset_type == "kws":
         output_size = 35
@@ -231,6 +233,8 @@ def main():
         d_state = 32
         d_conv = 4
         expand = 2
+        bit_width = 32
+
         train_ds, val_ds, test_ds = load_speechcommands_data(dataset_dir)
     else:
         sys.exit(f"Unknown dataset: {dataset_type}. Choose 'mnist', 'kws' or 'har'")
@@ -245,9 +249,11 @@ def main():
 
     match model_type:
         case "mamba-orig":
-            model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand, output_size=output_size).to(device)
+            model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, 
+                              d_conv=d_conv, expand=expand, output_size=output_size, bit_width=bit_width).to(device)
         case "mamba-raw":
-            model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand, output_size=output_size).to(device)
+            model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, 
+                              d_conv=d_conv, expand=expand, output_size=output_size, bit_width=bit_width).to(device)
         case _:
             sys.exit(
                 "Please specify a correct model with the environment variable MODEL"

@@ -171,13 +171,38 @@ class QuantSSM(nn.Module):
         # D: Skip connection coefficient
         self.D = nn.Parameter(torch.ones(d_inner))
 
-        # x_proj: Projects x to dt, B, C
-        # Output: [dt_rank, d_state, d_state] -> [dt_rank + 2*d_state]
-        self.x_proj = QuantLinear(
-            d_inner, self.dt_rank + 2 * d_state,
+        # Separate projections for dt, B, C
+        self.dt_proj_in = QuantLinear(
+            d_inner, self.dt_rank,
             bias=False,
             weight_bit_width=bit_width,
             return_quant_tensor=False
+        )
+        self.B_proj = QuantLinear(
+            d_inner, d_state,
+            bias=False,
+            weight_bit_width=bit_width,
+            return_quant_tensor=False
+        )
+        self.C_proj = QuantLinear(
+            d_inner, d_state,
+            bias=False,
+            weight_bit_width=bit_width,
+            return_quant_tensor=False
+        )
+
+        # Quantization for dt, B, C projections
+        self.dt_quant = QuantIdentity(
+            bit_width=bit_width,
+            return_quant_tensor=True
+        )
+        self.B_quant = QuantIdentity(
+            bit_width=bit_width,
+            return_quant_tensor=True
+        )
+        self.C_quant = QuantIdentity(
+            bit_width=bit_width,
+            return_quant_tensor=True
         )
 
         # dt_proj: Projects dt_input to full dt (d_inner dimensional)
@@ -240,13 +265,22 @@ class QuantSSM(nn.Module):
         D = self.d_state
 
         # Project x to get dt_input, B_ssm, C_ssm
-        x_proj_out = self.x_proj(x.reshape(B * L, M))  # [B*L, dt_rank + 2*D]
-        x_proj_out = x_proj_out.reshape(B, L, -1)
-
-        # Split into dt_input, B, C
-        dt_input = x_proj_out[:, :, :self.dt_rank]  # [B, L, dt_rank]
-        B_ssm = x_proj_out[:, :, self.dt_rank:self.dt_rank + D]  # [B, L, D]
-        C_ssm = x_proj_out[:, :, self.dt_rank + D:]  # [B, L, D]
+        x_flat = x.reshape(B * L, M)
+        
+        dt_input = self.dt_proj_in(x_flat)
+        dt_input = self.dt_quant(dt_input.reshape(B, L, self.dt_rank))
+        if hasattr(dt_input, 'value'):
+            dt_input = dt_input.value
+        
+        B_ssm = self.B_proj(x_flat)
+        B_ssm = self.B_quant(B_ssm.reshape(B, L, D))
+        if hasattr(B_ssm, 'value'):
+            B_ssm = B_ssm.value
+        
+        C_ssm = self.C_proj(x_flat)
+        C_ssm = self.C_quant(C_ssm.reshape(B, L, D))
+        if hasattr(C_ssm, 'value'):
+            C_ssm = C_ssm.value
 
         # Project dt_input to full dt and apply softplus
         dt = self.dt_proj(dt_input.reshape(B * L, self.dt_rank))  # [B*L, M]
@@ -255,8 +289,16 @@ class QuantSSM(nn.Module):
         # Compute A (negative exponential)
         A = self.A  # [D, M]
 
+        # print("A shape:", A.shape)
+        # print("dt shape:", dt.shape)
+        # print("B_ssm shape:", B_ssm.shape)
+        # print("C_ssm shape:", C_ssm.shape)
+
         # Initialize state
         h = torch.zeros(B, M, D, device=x.device, dtype=x.dtype)
+
+        # print("Initial h shape:", h.shape)
+        # print("D shape:", self.D.shape)
 
         # Discretization and scan (sequential over time)
         y_list = []
@@ -284,9 +326,14 @@ class QuantSSM(nn.Module):
 
         y = torch.stack(y_list, dim=1)  # [B, L, M]
 
+        # print("Raw SSM output y shape:", y.shape)
+
         # Apply SiLU gate if z is provided
         if z is not None:
             gate = F.silu(z)
+
+            # print("Gate shape:", gate.shape)
+
             y = y * gate
 
         # Remove time dimension if single step
@@ -336,14 +383,26 @@ class QuantMambaBlock(nn.Module):
         self.d_state = d_state
         self.kernel_size = conv_kernel
 
-        # Input projection: d_model -> 2 * d_inner (split into x and z)
-        self.in_proj = QuantLinear(
-            d_model, 2 * self.d_inner,
+        # State and gate projections (both take d_model as input)
+        self.state_proj = QuantLinear(
+            d_model, self.d_inner,
             bias=False,
             weight_bit_width=bit_width,
             return_quant_tensor=False
         )
-        self.in_proj_quant = QuantIdentity(
+        self.gate_proj = QuantLinear(
+            d_model, self.d_inner,
+            bias=False,
+            weight_bit_width=bit_width,
+            return_quant_tensor=False
+        )
+
+        # Quantization for state and gate branches
+        self.state_quant = QuantIdentity(
+            bit_width=bit_width,
+            return_quant_tensor=True
+        )
+        self.gate_quant = QuantIdentity(
             bit_width=bit_width,
             return_quant_tensor=True
         )
@@ -399,13 +458,16 @@ class QuantMambaBlock(nn.Module):
 
         B, L, _ = x.shape
 
-        # Input projection and split
-        xz = self.in_proj(x.reshape(B * L, self.d_model))
-        xz = self.in_proj_quant(xz.reshape(B, L, -1))
-        if hasattr(xz, 'value'):
-            xz = xz.value
+        # Apply state_proj and gate_proj to input
+        x_branch = self.state_proj(x.reshape(B * L, self.d_model))
+        x_branch = self.state_quant(x_branch.reshape(B, L, self.d_inner))
+        if hasattr(x_branch, 'value'):
+            x_branch = x_branch.value
 
-        x_branch, z_branch = xz.split([self.d_inner, self.d_inner], dim=-1)
+        z_branch = self.gate_proj(x.reshape(B * L, self.d_model))
+        z_branch = self.gate_quant(z_branch.reshape(B, L, self.d_inner))
+        if hasattr(z_branch, 'value'):
+            z_branch = z_branch.value
 
         # x branch: conv1d -> SiLU -> SSM
         # Transpose for conv1d: [B, L, M] -> [B, M, L]
@@ -414,6 +476,8 @@ class QuantMambaBlock(nn.Module):
         if hasattr(x_branch, 'value'):
             x_branch = x_branch.value
         x_branch = x_branch.transpose(1, 2)  # Back to [B, L, M]
+
+        # print("After conv1d, x_branch shape:", x_branch.shape)
 
         x_branch = self.silu(x_branch)
         if hasattr(x_branch, 'value'):
