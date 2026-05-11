@@ -67,13 +67,13 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     
     # Convert using litert_torch
     print("Converting with litert_torch.convert()...")
-    edge_model = litert_torch.convert(model, [sample_input])
+    edge_model = litert_torch.convert(model, (sample_input,))
     
     # Validate conversion
     print("Validating conversion...")
     with torch.no_grad():
         torch_output = model(sample_input).detach().numpy()
-        edge_output = edge_model(sample_input.numpy()).numpy()
+        edge_output = edge_model(sample_input.numpy())
     
     if np.allclose(torch_output, edge_output, atol=1e-4):
         print("✓ Conversion validated: PyTorch and LiteRT outputs match")
@@ -120,7 +120,7 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     print(f"  Output: {output_quantized}")
     
     qt = quantizer.Quantizer(output_float, recipe.dynamic_wi8_afp32())
-    quant_result = qt.quantize().export_model(output_quantized)
+    quant_result = qt.quantize().export_model(output_quantized, overwrite=True)
     
     # Step 5: Verify quantized model
     print("\n" + "=" * 70)

@@ -73,11 +73,15 @@ print_info "✓ Quantized TFLite model saved: $TFLITE_INT8"
 
 # Step 3: Generate C arrays
 print_step "Step 3: Generating C arrays from quantized model"
-cd "$TFLITE_MICRO" || print_error "Cannot cd to $TFLITE_MICRO"
 
-python tensorflow/lite/micro/tools/generate_cc_arrays.py \
-    "$OUTPUT_DIR/model_int8_model_data.cc" \
-    "$TFLITE_INT8"
+# Use local generate_cc_arrays.py
+# Pass output to a different filename so .h is not created, triggering the fallback path
+python generate_cc_arrays.py \
+    "" \
+    "$OUTPUT_DIR/model_int8.tflite"
+
+# Rename the generated .cc file to the expected name
+mv "$OUTPUT_DIR/model_int8.cc" "$OUTPUT_DIR/model_int8_model_data.cc" 2>/dev/null || true
 
 [ -f "$OUTPUT_DIR/model_int8_model_data.cc" ] || print_error "C source file not generated"
 [ -f "$OUTPUT_DIR/model_int8_model_data.h" ] || print_error "C header file not generated"
