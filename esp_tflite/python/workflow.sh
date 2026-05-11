@@ -50,31 +50,29 @@ PYTORCH_MODEL="$OUTPUT_DIR/best_model.pt"
 [ -f "$PYTORCH_MODEL" ] || print_error "PyTorch model not created"
 print_info "✓ PyTorch model saved: $PYTORCH_MODEL"
 
-# Step 2: Convert to TFLite (float)
-print_step "Step 2: Converting PyTorch to TFLite Float"
+# Step 2-3: Convert PyTorch to Quantized TFLite (unified script)
+print_step "Step 2-3: Converting PyTorch → Float TFLite → Quantized int8"
 TFLITE_FLOAT="$OUTPUT_DIR/model_float.tflite"
-python pytorch_to_tflite.py \
+TFLITE_INT8="$OUTPUT_DIR/model_int8.tflite"
+python convert_and_quantize.py \
     --pytorch-model "$PYTORCH_MODEL" \
-    --output-tflite "$TFLITE_FLOAT" \
+    --dataset-dir "$HAR_DATASET" \
+    --output-float "$TFLITE_FLOAT" \
+    --output-quantized "$TFLITE_INT8" \
+    --calibration-samples 100 \
     --input-shape 1 10 57
 
 [ -f "$TFLITE_FLOAT" ] || print_error "TFLite float model not created"
-print_info "✓ TFLite float model saved: $TFLITE_FLOAT"
-
-# Step 3: Quantize to int8
-print_step "Step 3: Quantizing TFLite Model to int8"
-TFLITE_INT8="$OUTPUT_DIR/model_int8.tflite"
-python quantize_tflite.py \
-    --tflite-model "$TFLITE_FLOAT" \
-    --dataset-dir "$HAR_DATASET" \
-    --output-quantized "$TFLITE_INT8" \
-    --calibration-samples 100
+[ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
+print_info "✓ Conversion and quantization complete:"
+print_info "  - Float: $TFLITE_FLOAT"
+print_info "  - Quantized: $TFLITE_INT8"
 
 [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
 print_info "✓ Quantized TFLite model saved: $TFLITE_INT8"
 
-# Step 4: Generate C arrays
-print_step "Step 4: Generating C arrays from quantized model"
+# Step 3: Generate C arrays
+print_step "Step 3: Generating C arrays from quantized model"
 cd "$TFLITE_MICRO" || print_error "Cannot cd to $TFLITE_MICRO"
 
 python tensorflow/lite/micro/tools/generate_cc_arrays.py \
@@ -88,8 +86,8 @@ print_info "✓ C array files generated:"
 print_info "  - $OUTPUT_DIR/model_int8_model_data.cc"
 print_info "  - $OUTPUT_DIR/model_int8_model_data.h"
 
-# Step 5: Create ESP32 integration guide
-print_step "Step 5: Creating ESP32 Integration Files"
+# Step 4: Create ESP32 integration guide
+print_step "Step 4: Creating ESP32 Integration Files"
 
 # Summary
 print_step "Workflow Complete!"
