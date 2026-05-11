@@ -19,12 +19,13 @@
 
 // Include generated model data
 #include "model_int8_model_data.h"
+// #include "model_float_model_data.h"
 
 #include "esp_timer.h"
 
 // Namespace to avoid conflicts
 namespace {
-constexpr int kTensorArenaSize = 30 * 1024;  // 30 KB arena for inference (model: 13.5 KB + working memory)
+constexpr int kTensorArenaSize = 60 * 1024;
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Model constants (update these for your model)
@@ -49,6 +50,7 @@ void setup() {
     tflite::InitializeTarget();
     
     // Load model
+    // const tflite::Model* model = tflite::GetModel(g_model_float_model_data);
     const tflite::Model* model = tflite::GetModel(g_model_int8_model_data);
     if (model->version() != TFLITE_SCHEMA_VERSION) {
         printf("ERROR: Model version mismatch!\n");
@@ -124,12 +126,12 @@ void setup() {
         return;
     }
     
-    printf("Inference completed in ");
+    printf("Inference completed in \n");
     printf("%lu", elapsed_time);
     printf(" microseconds\n");
     
     // Process output
-    printf("\n--- Inference Results ---");
+    printf("\n--- Inference Results ---\n");
     
     if (output->type == kTfLiteInt8) {
         int8_t* output_data = tflite::GetTensorData<int8_t>(output);

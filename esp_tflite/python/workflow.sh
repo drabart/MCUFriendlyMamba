@@ -80,30 +80,8 @@ python generate_cc_arrays.py \
     "" \
     "$OUTPUT_DIR/model_int8.tflite"
 
-# Rename the generated .cc file to the expected name
-mv "$OUTPUT_DIR/model_int8.cc" "$OUTPUT_DIR/model_int8_model_data.cc" 2>/dev/null || true
-
-[ -f "$OUTPUT_DIR/model_int8_model_data.cc" ] || print_error "C source file not generated"
-[ -f "$OUTPUT_DIR/model_int8_model_data.h" ] || print_error "C header file not generated"
+python generate_cc_arrays.py \
+    "" \
+    "$OUTPUT_DIR/model_float.tflite"
 
 print_info "✓ C array files generated:"
-print_info "  - $OUTPUT_DIR/model_int8_model_data.cc"
-print_info "  - $OUTPUT_DIR/model_int8_model_data.h"
-
-# Step 4: Create ESP32 integration guide
-print_step "Step 4: Creating ESP32 Integration Files"
-
-# Summary
-print_step "Workflow Complete!"
-echo ""
-echo "📊 Training Summary:"
-cat "$OUTPUT_DIR/metadata.json" | python -m json.tool
-echo ""
-echo "📁 Output Files:"
-ls -lh "$OUTPUT_DIR"/ | grep -E "\.(cc|h|tflite|json|md)$"
-echo ""
-print_info "Next steps:"
-print_info "1. Review $OUTPUT_DIR/DEPLOYMENT_GUIDE.md"
-print_info "2. Clone tflite-micro-esp-examples or create ESP-IDF project"
-print_info "3. Copy .cc/.h files to your project"
-print_info "4. Build and flash to ESP32"
