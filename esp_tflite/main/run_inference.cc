@@ -16,6 +16,7 @@
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
+#include "tensorflow/lite/micro/kernels/micro_ops.h"
 
 // Include generated model data
 #include "model_int8_model_data.h"
@@ -25,7 +26,7 @@
 
 // Namespace to avoid conflicts
 namespace {
-constexpr int kTensorArenaSize = 60 * 1024;
+constexpr int kTensorArenaSize = 100 * 1024;
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Model constants (update these for your model)
@@ -59,18 +60,28 @@ void setup() {
     printf("Model loaded successfully\n");
     
     // Create interpreter
-    static tflite::MicroMutableOpResolver<16> resolver;
+    static tflite::MicroMutableOpResolver<20> resolver;
     resolver.AddFullyConnected();
     resolver.AddReshape();
-    resolver.AddQuantize();
-    resolver.AddDequantize();
     resolver.AddMul();
-    resolver.AddAdd();
-    resolver.AddPack();
-    resolver.AddUnpack();
     resolver.AddTranspose();
     resolver.AddSum();
+
     resolver.AddGatherNd();
+    resolver.AddPad();
+    resolver.AddQuantize();
+    resolver.AddDequantize();
+    resolver.AddDepthwiseConv2D();
+
+    resolver.AddSlice();
+    resolver.AddLogistic();
+    resolver.AddExp();
+    resolver.AddAdd();
+    resolver.AddLog();
+
+    resolver.AddSelectV2();
+    resolver.AddGreater();
+    resolver.AddCustom("SELECT", tflite::Register_SELECT());
     
     static tflite::MicroInterpreter interpreter(
         model, resolver, tensor_arena, kTensorArenaSize);
@@ -89,6 +100,7 @@ void setup() {
     for (int i = 0; i < input->dims->size; i++) {
         printf("%d ", input->dims->data[i]);
     }
+    printf("Input params: %f %ld\n", input->params.scale, input->params.zero_point);
     printf("\n");
     
     printf("Output shape: ");
@@ -99,8 +111,8 @@ void setup() {
     printf("\n");
     
     // Test inference with dummy data
-    printf("\n--- Running inference with dummy data ---");
-    
+    printf("\n--- Running inference with dummy data ---\n");
+
     // Fill input with random-ish test data
     if (input->type == kTfLiteInt8) {
         // Quantized input

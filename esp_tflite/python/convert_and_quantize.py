@@ -3,9 +3,48 @@ import argparse
 import os
 import numpy as np
 import torch
-from models_linear import TinyLinear
+from models import HARLinear, HARMamba
 from data import load_har_data
 from torch.utils.data import DataLoader
+from ai_edge_quantizer.utils import tfl_interpreter_utils
+
+def _get_calibration_data(dataset_dir, num_samples=100, input_shape=(1, 10, 57)):
+    """Load and cache calibration data from HAR dataset.
+
+    The calibration data is returned as a dictionary with the signature key
+    mapping to a list of sample dictionaries. Each sample dictionary maps
+    input tensor names to their values. This format is required by ai_edge_quantizer.
+
+    Args:
+        dataset_dir: Path to HAR dataset.
+        num_samples: Number of samples to load.
+        input_shape: Model input shape (batch, time, features).
+
+    Returns:
+        A dictionary with signature key mapping to list of calibration samples.
+    """
+    _, _, test_ds = load_har_data(dataset_dir)
+    test_loader = DataLoader(test_ds, batch_size=1, shuffle=True)
+    
+    calibration_samples = []
+    count = 0
+    
+    for data, _ in test_loader:
+        if count >= num_samples:
+            break
+        
+        sample_data = data.numpy().astype(np.float32)
+        calibration_samples.append(
+            {"args_0": sample_data}
+        )
+
+        count += 1
+    
+    print(f"✓ Loaded {count} calibration samples for quantization")
+    
+    print(tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY)
+
+    return {tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY: calibration_samples}
 
 
 def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, output_float=None, 
@@ -51,7 +90,8 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     print("STEP 1: Loading PyTorch Model")
     print("=" * 70)
     device = torch.device("cpu")
-    model = TinyLinear(input_dim=57, d_model=64, output_size=6, bit_width=8).to(device)
+    # model = HARLinear(input_dim=57, d_model=64, output_size=6).to(device)
+    model = HARMamba(input_dim=57, d_model=64, output_size=6).to(device)
     model.load_state_dict(torch.load(pytorch_model_path, map_location=device))
     model.eval()
     print(f"✓ Loaded PyTorch model from: {pytorch_model_path}")
@@ -101,26 +141,29 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     print("=" * 70)
     
     print("Loading calibration data...")
-    _, _, test_ds = load_har_data(dataset_dir)
-    test_loader = DataLoader(test_ds, batch_size=1, shuffle=True)
+    calibration_data = _get_calibration_data(
+        dataset_dir, 
+        num_samples=num_calibration_samples,
+        input_shape=input_shape
+    )
     
-    count = 0
-    for data, _ in test_loader:
-        if count >= num_calibration_samples:
-            break
-        count += 1
-        if count % 20 == 0:
-            print(f"  Loaded {count} calibration samples")
-    
-    print(f"✓ Loaded {count} calibration samples for quantization")
-    
-    # Quantize with dynamic weight int8, activation float32
-    print(f"\nApplying dynamic_wi8_afp32 quantization recipe...")
+    # Quantize with static weight int8, activation int8
+    print(f"\nApplying quantization recipe...")
     print(f"  Input: {output_float}")
     print(f"  Output: {output_quantized}")
     
-    qt = quantizer.Quantizer(output_float, recipe.dynamic_wi8_afp32())
-    quant_result = qt.quantize().export_model(output_quantized, overwrite=True)
+    qt = quantizer.Quantizer(output_float, recipe.static_wi8_ai8())
+    
+    # Calibrate with the actual HAR data
+    print("Calibrating quantizer with HAR dataset...")
+    calibration_results = qt.calibrate(calibration_data)
+    
+    # Perform quantization and export
+    quant_result = qt.quantize(calibration_results)
+    quant_result.export_model(output_quantized, overwrite=True)
+
+    import model_explorer
+    model_explorer.visualize(output_quantized)
     
     # Step 5: Verify quantized model
     print("\n" + "=" * 70)

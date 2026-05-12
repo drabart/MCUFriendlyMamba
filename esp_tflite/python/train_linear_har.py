@@ -9,8 +9,7 @@ import json
 import os
 
 from data import load_har_data
-from models_linear import TinyLinear
-
+from models import HARLinear, HARMamba
 
 def train(model, device, train_loader, optimizer, epoch, print_stats=False, log_interval=10, dry_run=False):
     """Train for one epoch."""
@@ -128,11 +127,15 @@ def main():
 
     # Create model
     print("Creating model...")
-    model = TinyLinear(
+    # model = HARLinear(
+    #     input_dim=57,
+    #     d_model=args.d_model,
+    #     output_size=6,
+    # ).to(device)
+    model = HARMamba(
         input_dim=57,
         d_model=args.d_model,
         output_size=6,
-        bit_width=args.bit_width,
     ).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
