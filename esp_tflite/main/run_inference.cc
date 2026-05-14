@@ -13,6 +13,8 @@
 #include "run_inference.h"
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
+#include "tensorflow/lite/micro/recording_micro_interpreter.h"
+#include "tensorflow/lite/micro/micro_profiler.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
@@ -83,9 +85,11 @@ void setup() {
     resolver.AddSelectV2();
     resolver.AddGreater();
     resolver.AddBroadcastTo();
-    
-    static tflite::MicroInterpreter interpreter(
-        model, resolver, tensor_arena, kTensorArenaSize);
+
+    tflite::MicroProfiler profiler = tflite::MicroProfiler();
+
+    static tflite::RecordingMicroInterpreter interpreter(
+        model, resolver, tensor_arena, kTensorArenaSize, nullptr, &profiler);
     
     if (interpreter.AllocateTensors() != kTfLiteOk) {
         printf("ERROR: Failed to allocate tensors\n");
@@ -174,6 +178,17 @@ void setup() {
     
     printf("\nPredicted Activity: ");
     printf("%s\n", ACTIVITY_LABELS[predicted_class]);
+
+    // Print out detailed allocation information:
+    // interpreter.GetMicroAllocator().PrintAllocations();
+
+    profiler.Log();
+
+    printf("\n=== Inference test completed ===\n");
+    
+    for (;;) {
+        // Loop forever
+    }
 }
 
 void loop() {

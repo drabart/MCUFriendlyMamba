@@ -2,6 +2,50 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+class SelectiveScanSequential(nn.Module):
+    """Selective Scan operator as an nn.Module for proper model visualization."""
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, u, delta, A, B, C, D):
+        """Apply selective scan sequentially.
+        
+        Args:
+            u: Input tensor of shape (batch, length, channels)
+            delta: Delta/step tensor of shape (batch, length, channels)
+            A: State matrix of shape (channels, state_dim)
+            B: Input projection of shape (batch, length, state_dim)
+            C: Output projection of shape (batch, length, state_dim)
+            D: Direct feedthrough of shape (channels,)
+            
+        Returns:
+            Output tensor of shape (batch, length, channels)
+        """
+        b, l, e = u.shape
+        n = A.shape[1]
+
+        h = torch.zeros(b, e, n, device=u.device, dtype=u.dtype)
+        ys = torch.empty(b, l, e, device=u.device, dtype=u.dtype)
+
+        for t in range(l):
+            delta_t = delta[:, t, :, None]
+            A_bar = torch.exp(delta_t * A)
+
+            B_t = B[:, t, :].unsqueeze(1)
+            B_bar = delta_t * B_t
+
+            h = A_bar * h + B_bar * u[:, t, :, None]
+
+            C_t = C[:, t, :].unsqueeze(1)
+            y = (h * C_t).sum(dim=-1) + D[None, :] * u[:, t, :]
+
+            ys[:, t, :] = y
+
+        return ys
+
+
 class MambaBlock(nn.Module):
     def __init__(self, d_model=64, d_state=16, d_conv=4, expand=2):
         super().__init__()
@@ -29,6 +73,7 @@ class MambaBlock(nn.Module):
         self.A_log = nn.Parameter(torch.randn(self.d_inner, self.d_state))
         self.D = nn.Parameter(torch.ones(self.d_inner))
 
+        self.selective_scan = SelectiveScanSequential()
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=False)
 
     def forward(self, x):
@@ -53,33 +98,9 @@ class MambaBlock(nn.Module):
         dt = F.softplus(dt)
 
         A = -torch.exp(self.A_log)
-        y = selective_scan_sequential(state, dt, A, B, C, self.D)
+        y = self.selective_scan(state, dt, A, B, C, self.D)
 
         gate = F.silu(gate)
         y = y * gate
 
         return self.out_proj(y)
-
-
-def selective_scan_sequential(u, delta, A, B, C, D):
-    b, l, e = u.shape
-    n = A.shape[1]
-
-    h = torch.zeros(b, e, n, device=u.device, dtype=u.dtype)
-    ys = torch.empty(b, l, e, device=u.device, dtype=u.dtype)
-
-    for t in range(l):
-        delta_t = delta[:, t, :, None]
-        A_bar = torch.exp(delta_t * A)
-
-        B_t = B[:, t, :].unsqueeze(1)
-        B_bar = delta_t * B_t
-
-        h = A_bar * h + B_bar * u[:, t, :, None]
-
-        C_t = C[:, t, :].unsqueeze(1)
-        y = (h * C_t).sum(dim=-1) + D[None, :] * u[:, t, :]
-
-        ys[:, t, :] = y
-
-    return ys

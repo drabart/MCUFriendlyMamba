@@ -99,13 +99,16 @@ Skip stages to iterate faster:
 
 # Enable verbose logging (for debugging)
 ./workflow.sh --verbose
+
+# Copy the generated int8 model arrays into ../main
+./workflow.sh --copy-model-arrays
 ```
 
 ## Deployment to ESP32
 
 ### 1. Copy Generated Model Files
 
-After running `./workflow.sh`, copy the int8 model arrays to the main code directory:
+After running `./workflow.sh`, copy the int8 model arrays to the main code directory, or let the workflow do it for you with `--copy-model-arrays`:
 
 ```bash
 cp python/models/model_int8_model_data.cc ../main/
