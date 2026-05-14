@@ -33,8 +33,7 @@ def generate_file(out_fname, array_name, array_type, array_contents, size):
   if out_fname.endswith(".cc"):
     with open(out_fname, "w") as out_cc_file:
       out_cc_file.write("#include <cstdint>\n\n")
-      # Header include path logic, maintaining compatibility with genfiles/ structure.
-      header_path = out_fname.split("genfiles/")[-1].replace(".cc", ".h")
+      header_path = os.path.basename(out_fname).replace(".cc", ".h")
       out_cc_file.write('#include "{}"\n\n'.format(header_path))
       out_cc_file.write("alignas(16) const {} {}[] = {{".format(
           array_type, array_name))

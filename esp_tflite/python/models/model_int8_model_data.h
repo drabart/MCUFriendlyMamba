@@ -1,4 +1,4 @@
 #include <cstdint>
 
-constexpr unsigned int g_model_int8_model_data_size = 736;
+constexpr unsigned int g_model_int8_model_data_size = 115608;
 extern const unsigned char g_model_int8_model_data[];

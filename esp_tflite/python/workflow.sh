@@ -22,11 +22,74 @@ print_info() {
     echo -e "${YELLOW}$1${NC}"
 }
 
+usage() {
+    cat <<'EOF'
+Usage: ./workflow.sh [options]
+
+Options:
+  --skip-train        Reuse an existing PyTorch model instead of training a new one
+  --skip-convert      Reuse existing float and quantized TFLite models
+  --skip-generate     Skip generating C arrays from TFLite models
+  --pytorch-model P   Path to an existing PyTorch model checkpoint
+  --float-model P     Path to an existing float TFLite model
+  --quant-model P     Path to an existing quantized TFLite model
+  -h, --help          Show this help message
+EOF
+}
+
+# Stage control
+RUN_TRAIN=1
+RUN_CONVERT=1
+RUN_GENERATE=1
+
+# Artifact paths (defaults can be overridden from the command line)
+OUTPUT_DIR="./models"
+PYTORCH_MODEL=""
+TFLITE_FLOAT=""
+TFLITE_INT8=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --skip-train)
+            RUN_TRAIN=0
+            shift
+            ;;
+        --skip-convert)
+            RUN_CONVERT=0
+            shift
+            ;;
+        --skip-generate)
+            RUN_GENERATE=0
+            shift
+            ;;
+        --pytorch-model)
+            PYTORCH_MODEL="$2"
+            shift 2
+            ;;
+        --float-model)
+            TFLITE_FLOAT="$2"
+            shift 2
+            ;;
+        --quant-model)
+            TFLITE_INT8="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
 # Configuration
 HAR_DATASET="${HAR_DATASET:=/home/drabart/Documents/ResearchProject/UCI HAR Dataset}"
 TFLITE_MICRO="${TFLITE_MICRO:=/home/drabart/Documents/ResearchProject/tflite-micro}"
 WORKSPACE="/tmp/har_workflow"
-OUTPUT_DIR="./models"
 
 print_info "Using HAR dataset: $HAR_DATASET"
 print_info "Using TFLite Micro: $TFLITE_MICRO"
@@ -36,52 +99,72 @@ mkdir -p "$WORKSPACE"
 mkdir -p "$OUTPUT_DIR"
 
 # Step 1: Train PyTorch model
-print_step "Step 1: Training PyTorch Linear Model on HAR Dataset"
-python train_linear_har.py \
-    --dataset-dir "$HAR_DATASET" \
-    --batch-size 32 \
-    --epochs 5 \
-    --d-model 64 \
-    --bit-width 8 \
-    --lr 0.001 \
-    --output-dir "$OUTPUT_DIR"
+if [[ "$RUN_TRAIN" -eq 1 ]]; then
+    print_step "Step 1: Training PyTorch Linear Model on HAR Dataset"
+    python train_linear_har.py \
+        --dataset-dir "$HAR_DATASET" \
+        --batch-size 32 \
+        --epochs 5 \
+        --d-model 64 \
+        --bit-width 8 \
+        --lr 0.001 \
+        --output-dir "$OUTPUT_DIR"
 
-PYTORCH_MODEL="$OUTPUT_DIR/best_model.pt"
-[ -f "$PYTORCH_MODEL" ] || print_error "PyTorch model not created"
-print_info "✓ PyTorch model saved: $PYTORCH_MODEL"
+    PYTORCH_MODEL="$OUTPUT_DIR/best_model.pt"
+    [ -f "$PYTORCH_MODEL" ] || print_error "PyTorch model not created"
+    print_info "✓ PyTorch model saved: $PYTORCH_MODEL"
+else
+    PYTORCH_MODEL="${PYTORCH_MODEL:-$OUTPUT_DIR/best_model.pt}"
+    [ -f "$PYTORCH_MODEL" ] || print_error "PyTorch model not found: $PYTORCH_MODEL"
+    print_info "✓ Reusing existing PyTorch model: $PYTORCH_MODEL"
+fi
 
 # Step 2-3: Convert PyTorch to Quantized TFLite (unified script)
-print_step "Step 2-3: Converting PyTorch → Float TFLite → Quantized int8"
-TFLITE_FLOAT="$OUTPUT_DIR/model_float.tflite"
-TFLITE_INT8="$OUTPUT_DIR/model_int8.tflite"
-python convert_and_quantize.py \
-    --pytorch-model "$PYTORCH_MODEL" \
-    --dataset-dir "$HAR_DATASET" \
-    --output-float "$TFLITE_FLOAT" \
-    --output-quantized "$TFLITE_INT8" \
-    --calibration-samples 100 \
-    --input-shape 1 10 57
+if [[ "$RUN_CONVERT" -eq 1 ]]; then
+    print_step "Step 2-3: Converting PyTorch → Float TFLite → Quantized int8"
+    TFLITE_FLOAT="${TFLITE_FLOAT:-$OUTPUT_DIR/model_float.tflite}"
+    TFLITE_INT8="${TFLITE_INT8:-$OUTPUT_DIR/model_int8.tflite}"
+    python convert_and_quantize.py \
+        --pytorch-model "$PYTORCH_MODEL" \
+        --dataset-dir "$HAR_DATASET" \
+        --output-float "$TFLITE_FLOAT" \
+        --output-quantized "$TFLITE_INT8" \
+        --calibration-samples 500 \
+        --input-shape 1 10 57
 
-[ -f "$TFLITE_FLOAT" ] || print_error "TFLite float model not created"
-[ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
-print_info "✓ Conversion and quantization complete:"
-print_info "  - Float: $TFLITE_FLOAT"
-print_info "  - Quantized: $TFLITE_INT8"
+    [ -f "$TFLITE_FLOAT" ] || print_error "TFLite float model not created"
+    [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
+    print_info "✓ Conversion and quantization complete:"
+    print_info "  - Float: $TFLITE_FLOAT"
+    print_info "  - Quantized: $TFLITE_INT8"
 
-[ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
-print_info "✓ Quantized TFLite model saved: $TFLITE_INT8"
+    [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
+    print_info "✓ Quantized TFLite model saved: $TFLITE_INT8"
+else
+    TFLITE_FLOAT="${TFLITE_FLOAT:-$OUTPUT_DIR/model_float.tflite}"
+    TFLITE_INT8="${TFLITE_INT8:-$OUTPUT_DIR/model_int8.tflite}"
+    [ -f "$TFLITE_FLOAT" ] || print_error "TFLite float model not found: $TFLITE_FLOAT"
+    [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not found: $TFLITE_INT8"
+    print_info "✓ Reusing existing TFLite models:"
+    print_info "  - Float: $TFLITE_FLOAT"
+    print_info "  - Quantized: $TFLITE_INT8"
+fi
 
 # Step 3: Generate C arrays
-print_step "Step 3: Generating C arrays from quantized model"
+if [[ "$RUN_GENERATE" -eq 1 ]]; then
+    print_step "Step 3: Generating C arrays from quantized model"
 
-# Use local generate_cc_arrays.py
-# Pass output to a different filename so .h is not created, triggering the fallback path
-python generate_cc_arrays.py \
-    "" \
-    "$OUTPUT_DIR/model_int8.tflite"
+    # Use local generate_cc_arrays.py
+    # Pass output to a different filename so .h is not created, triggering the fallback path
+    python generate_cc_arrays.py \
+        "" \
+        "$TFLITE_INT8"
 
-python generate_cc_arrays.py \
-    "" \
-    "$OUTPUT_DIR/model_float.tflite"
+    python generate_cc_arrays.py \
+        "" \
+        "$TFLITE_FLOAT"
 
-print_info "✓ C array files generated:"
+    print_info "✓ C array files generated:"
+else
+    print_info "✓ Skipping C array generation"
+fi

@@ -147,7 +147,7 @@ def main():
     best_model_path = os.path.join(args.output_dir, "best_model.pt")
     
     for epoch in range(1, args.epochs + 1):
-        train(model, device, train_loader, optimizer, epoch, print_stats=True)
+        train(model, device, train_loader, optimizer, epoch, print_stats=False)
         val_accuracy = test(model, device, val_loader, print_stats=True)
         
         if val_accuracy > best_accuracy:

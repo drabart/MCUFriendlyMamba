@@ -79,9 +79,10 @@ void setup() {
     resolver.AddAdd();
     resolver.AddLog();
 
+    resolver.AddSelect();
     resolver.AddSelectV2();
     resolver.AddGreater();
-    resolver.AddCustom("SELECT", tflite::Register_SELECT());
+    resolver.AddBroadcastTo();
     
     static tflite::MicroInterpreter interpreter(
         model, resolver, tensor_arena, kTensorArenaSize);
