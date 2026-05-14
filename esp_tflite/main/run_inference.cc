@@ -25,6 +25,7 @@
 // #include "model_float_model_data.h"
 
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
 
 // Namespace to avoid conflicts
 namespace {
@@ -87,6 +88,7 @@ void setup() {
     resolver.AddBroadcastTo();
 
     tflite::MicroProfiler profiler = tflite::MicroProfiler();
+    printf("Profiler size: %d bytes\n", sizeof(profiler));
 
     static tflite::RecordingMicroInterpreter interpreter(
         model, resolver, tensor_arena, kTensorArenaSize, nullptr, &profiler);
@@ -180,15 +182,14 @@ void setup() {
     printf("%s\n", ACTIVITY_LABELS[predicted_class]);
 
     // Print out detailed allocation information:
-    // interpreter.GetMicroAllocator().PrintAllocations();
-
+    interpreter.GetMicroAllocator().PrintAllocations();
     profiler.Log();
 
+    // Check the stack of the current running task
+    UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+    printf("Stack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark * 4);
+
     printf("\n=== Inference test completed ===\n");
-    
-    for (;;) {
-        // Loop forever
-    }
 }
 
 void loop() {
