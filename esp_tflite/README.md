@@ -1,67 +1,137 @@
-# Hello World Example
+# ESP-TFLite HAR Inference
 
-This example is designed to demonstrate the absolute basics of using [TensorFlow
-Lite for Microcontrollers](https://www.tensorflow.org/lite/microcontrollers).
-It includes the full end-to-end workflow of training a model, converting it for
-use with TensorFlow Lite for Microcontrollers for running inference on a
-microcontroller.
+Human Activity Recognition (HAR) model trained in PyTorch, converted to TensorFlow Lite with quantization, and deployed on ESP32 using TensorFlow Lite Micro.
 
-The model is trained to replicate a `sine` function and generates a pattern of
-data to either blink LEDs or control an animation, depending on the capabilities
-of the device.
+## Prerequisites
 
-## Deploy to ESP32
+### Python Environment Setup
 
-The following instructions will help you build and deploy this sample
-to [ESP32](https://www.espressif.com/en/products/hardware/esp32/overview)
-devices using the [ESP IDF](https://github.com/espressif/esp-idf).
+This project uses a Conda environment named `litert` with the following dependencies:
 
-The sample has been tested on ESP-IDF version `release/v4.2` and `release/v4.4` with the following devices:
-- [ESP32-DevKitC](http://esp-idf.readthedocs.io/en/latest/get-started/get-started-devkitc.html)
-- [ESP32-S3-DevKitC](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/esp32s3/user-guide-devkitc-1.html)
-- [ESP-EYE](https://github.com/espressif/esp-who/blob/master/docs/en/get-started/ESP-EYE_Getting_Started_Guide.md)
-
-### Install the ESP IDF
-
-Follow the instructions of the
-[ESP-IDF get started guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html)
-to setup the toolchain and the ESP-IDF itself.
-
-The next steps assume that the
-[IDF environment variables are set](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#step-4-set-up-the-environment-variables) :
-
- * The `IDF_PATH` environment variable is set
- * `idf.py` and Xtensa-esp32 tools (e.g. `xtensa-esp32-elf-gcc`) are in `$PATH`
-
-
-### Building the example
-
-Set the chip target (For esp32s3 target, IDF version `release/v4.4` is needed):
-
-```
-idf.py set-target esp32s3
+```bash
+conda create -n litert python=3.12
+conda activate litert
+pip install pytorch torchvision torchaudio
+pip install tensorflow litert-torch ai-edge-quantizer numpy pandas
+(TODO: probably also a few more)
 ```
 
-Then build with `idf.py`
+### ESP-IDF
+
+- ESP-IDF v6.0 or later (for building the ESP32 firmware)
+- ESP32 development board
+
+### Data
+
+Place your HAR dataset in a directory accessible to the Python scripts. The dataset should be structured as:
 ```
-idf.py build
+dataset/
+├── train/
+├── val/
+└── test/
 ```
 
-### Load and run the example
+## Directory Structure
 
-To flash (replace `/dev/ttyUSB0` with the device serial port):
 ```
-idf.py --port /dev/ttyUSB0 flash
+esp_tflite/
+├── python/                          # Python workflow for training and conversion
+│   ├── convert_and_quantize.py      # Converts PyTorch → TFLite float → int8 quantized
+│   ├── data.py                      # HAR dataset loader
+│   ├── generate_cc_arrays.py        # Generates C++ arrays from .tflite models
+│   ├── models.py                    # Model definitions (HARMamba)
+│   ├── mamba_raw.py                 # Mamba architecture with selective scan
+│   ├── train_linear_har.py          # Training script
+│   ├── workflow.sh                  # Orchestrates full pipeline
+│   └── models/                      # Generated models and C arrays
+├── main/                            # ESP32 C++ code
+│   ├── main.cc                      # Entry point
+│   ├── run_inference.cc/h           # Inference wrapper
+│   └── model_int8_model_data.{cc,h} # Copy generated int8 model here
+├── components/esp-tflite-micro/     # TFLite Micro framework
+└── CMakeLists.txt                   # ESP-IDF build config
 ```
 
-Monitor the serial output:
-```
-idf.py --port /dev/ttyUSB0 monitor
+## Quick Start
+
+### 1. Activate the Conda Environment
+
+```bash
+conda activate litert
+cd python
 ```
 
-Use `Ctrl+]` to exit.
+### 2. Run the Complete Workflow
 
-The previous two commands can be combined:
+The `workflow.sh` script handles:
+1. **Training** – Trains HARMamba on the HAR dataset
+2. **Conversion** – Converts trained model to float TFLite, then quantizes to int8
+3. **C Array Generation** – Generates C++ source arrays for embedded deployment
+
+```bash
+./workflow.sh
 ```
-idf.py --port /dev/ttyUSB0 flash monitor
+
+Expected outputs in `python/models/`:
+- `model_float.tflite` – Float32 model (~200 KB)
+- `model_int8.tflite` – Quantized int8 model (~115 KB)
+- `model_int8_model_data.cc` – C++ int8 model array
+- `model_int8_model_data.h` – C++ int8 model header
+
+**Output will show:**
+- Float model accuracy on test set
+- Quantized model accuracy on test set
+- Model size reduction percentage
+
+### 3. Workflow Options
+
+Skip stages to iterate faster:
+
+```bash
+# Skip training, reuse existing checkpoint
+./workflow.sh --skip-train
+
+# Skip training and conversion, only generate C arrays
+./workflow.sh --skip-train --skip-convert
+
+# Override model paths
+./workflow.sh --skip-train --skip-convert --quant-model ./models/model_int8.tflite
+
+# Enable verbose logging (for debugging)
+./workflow.sh --verbose
 ```
+
+## Deployment to ESP32
+
+### 1. Copy Generated Model Files
+
+After running `./workflow.sh`, copy the int8 model arrays to the main code directory:
+
+```bash
+cp python/models/model_int8_model_data.cc ../main/
+cp python/models/model_int8_model_data.h ../main/
+```
+
+### 2. Build with ESP-IDF
+
+From the project root:
+
+```bash
+idf.py build flash monitor
+```
+
+## Model Details
+
+**Architecture:** HARMamba with selective scan mechanism
+- Input: (batch=1, timesteps=10, features=57)
+- Output: 6 activity classes
+- Model size: 115 KB (int8 quantized)
+
+**Quantization:**
+- Weights: 8-bit, activations: 8-bit (int8)
+- Calibration: MIN_MAX_UNIFORM_QUANT on test set samples
+- Typical accuracy preservation: 95%+ of float model
+
+**Test Set Accuracy:**
+- Float model: Reported after conversion
+- Quantized model: Reported after quantization
