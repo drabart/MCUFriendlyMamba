@@ -1,0 +1,17 @@
+{
+  "dataset": "UCI HAR",
+  "input_shape": [
+    1,
+    10,
+    57
+  ],
+  "output_shape": [
+    1,
+    6
+  ],
+  "d_model": 64,
+  "bit_width": 8,
+  "epochs_trained": 5,
+  "best_val_accuracy": 0.9530612244897959,
+  "test_accuracy": 0.9226331862911435
+}

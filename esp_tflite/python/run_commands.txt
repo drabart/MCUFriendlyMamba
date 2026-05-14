@@ -1,0 +1,3 @@
+./workflow.sh --skip-train
+./workflow.sh --skip-train --skip-convert --skip-generate --quant-model ./models/model_int8.tflite --float-model ./models/model_float.tflite
+./workflow.sh --skip-generate

@@ -18,3 +18,5 @@ mamba-embedded/
 mambaquant/
 paper/
 BioFoundation/
+data/
+tflite-micro/
