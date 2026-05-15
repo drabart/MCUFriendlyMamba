@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class SelectiveScanSequential(nn.Module):
     """Selective Scan operator as an nn.Module for proper model visualization."""
 
@@ -31,7 +30,8 @@ class SelectiveScanSequential(nn.Module):
 
         for t in range(l):
             delta_t = delta[:, t, :, None]
-            A_bar = torch.exp(delta_t * A)
+            # A_bar = torch.exp(delta_t * A)
+            A_bar = delta_t * A
 
             B_t = B[:, t, :].unsqueeze(1)
             B_bar = delta_t * B_t
@@ -67,13 +67,13 @@ class MambaBlock(nn.Module):
 
         self.x_proj_B = nn.Linear(self.d_inner, self.d_state, bias=False)
         self.x_proj_C = nn.Linear(self.d_inner, self.d_state, bias=False)
-        self.x_proj_dt = nn.Linear(self.d_inner, 1, bias=False)
-        self.dt_proj = nn.Linear(1, self.d_inner, bias=False)
+        self.x_proj_dt = nn.Linear(self.d_inner, 8, bias=False)
+        self.dt_proj = nn.Linear(8, self.d_inner, bias=False)
 
         self.A_log = nn.Parameter(torch.randn(self.d_inner, self.d_state))
         self.D = nn.Parameter(torch.ones(self.d_inner))
 
-        self.selective_scan = SelectiveScanSequential()
+        self.ssm = SelectiveScanSequential()
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=False)
 
     def forward(self, x):
@@ -85,7 +85,8 @@ class MambaBlock(nn.Module):
         state = state.transpose(1, 2)
         state = self.conv1d(state)[:, :, :l]
         
-        state = F.silu(state)
+        # state = F.silu(state)
+        state = F.relu(state)
         
         state = state.transpose(1, 2)
 
@@ -95,12 +96,14 @@ class MambaBlock(nn.Module):
         # LoRA module
         dt = self.x_proj_dt(state)
         dt = self.dt_proj(dt)
-        dt = F.softplus(dt)
+        # dt = F.softplus(dt)
+        dt = F.relu(dt)
 
         A = -torch.exp(self.A_log)
-        y = self.selective_scan(state, dt, A, B, C, self.D)
+        y = self.ssm(state, dt, A, B, C, self.D)
 
-        gate = F.silu(gate)
+        # gate = F.silu(gate)
+        gate = F.relu(gate)
         y = y * gate
 
         return self.out_proj(y)

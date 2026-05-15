@@ -9,9 +9,9 @@
     1,
     6
   ],
-  "d_model": 128,
+  "d_model": 64,
   "bit_width": 8,
   "epochs_trained": 20,
-  "best_val_accuracy": 0.9863945578231292,
-  "test_accuracy": 0.9419748897183576
+  "best_val_accuracy": 0.9775510204081632,
+  "test_accuracy": 0.9365456396335257
 }

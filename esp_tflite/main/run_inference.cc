@@ -86,6 +86,7 @@ void setup() {
     resolver.AddSelectV2();
     resolver.AddGreater();
     resolver.AddBroadcastTo();
+    resolver.AddRelu();
 
     tflite::CustomProfiler<512, 20> profiler;
 
@@ -182,6 +183,11 @@ void setup() {
 
     // Print out detailed allocation information:
     interpreter.GetMicroAllocator().PrintAllocations();
+
+    printf("\n--- Precise Profiling Results ---\n");
+    profiler.LogPrecise();
+    
+    printf("\n--- Grouped Profiling Results ---\n");
     profiler.LogGrouped();
 
     // Check the stack of the current running task

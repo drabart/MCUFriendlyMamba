@@ -18,6 +18,7 @@ import torch
 from models import HARMamba
 from data import load_har_data
 from torch.utils.data import DataLoader
+import json
 
 
 def _print_step(step_num, title):
@@ -105,14 +106,9 @@ def _get_test_loader(dataset_dir):
 
 def _build_tflite_interpreter(model_path, verbose=False):
     with _maybe_suppress_output(enabled=not verbose):
-        try:
-            from ai_edge_litert.interpreter import Interpreter
-        except ImportError:
-            import tensorflow as tf
+        from ai_edge_litert.interpreter import Interpreter
 
-            interpreter = tf.lite.Interpreter(model_path=model_path)
-        else:
-            interpreter = Interpreter(model_path=model_path)
+        interpreter = Interpreter(model_path=model_path)
 
         interpreter.allocate_tensors()
     return interpreter
