@@ -1,0 +1,132 @@
+Using HAR dataset: /home/drabart/Documents/ResearchProject/UCI HAR Dataset
+Using TFLite Micro: /home/drabart/Documents/ResearchProject/tflite-micro
+Workspace: /tmp/har_workflow
+===== Step 1: Training PyTorch Linear Model on HAR Dataset =====
+Using device: cuda
+Loading HAR dataset...
+Creating model...
+Starting training...
+Test set: Average loss: 0.2229, Accuracy: 1323/1470 (90.0%)
+
+Saved best model with accuracy: 0.9000
+Test set: Average loss: 0.1787, Accuracy: 1369/1470 (93.1%)
+
+Saved best model with accuracy: 0.9313
+Test set: Average loss: 0.1616, Accuracy: 1376/1470 (93.6%)
+
+Saved best model with accuracy: 0.9361
+Test set: Average loss: 0.1657, Accuracy: 1397/1470 (95.0%)
+
+Saved best model with accuracy: 0.9503
+Test set: Average loss: 0.1516, Accuracy: 1373/1470 (93.4%)
+
+Test set: Average loss: 0.0733, Accuracy: 1440/1470 (98.0%)
+
+Saved best model with accuracy: 0.9796
+Test set: Average loss: 0.0982, Accuracy: 1417/1470 (96.4%)
+
+Test set: Average loss: 0.0946, Accuracy: 1417/1470 (96.4%)
+
+Test set: Average loss: 0.3440, Accuracy: 1323/1470 (90.0%)
+
+Test set: Average loss: 0.0860, Accuracy: 1424/1470 (96.9%)
+
+Test set: Average loss: 0.0519, Accuracy: 1440/1470 (98.0%)
+
+Test set: Average loss: 0.0609, Accuracy: 1440/1470 (98.0%)
+
+Test set: Average loss: 0.0459, Accuracy: 1442/1470 (98.1%)
+
+Saved best model with accuracy: 0.9810
+Test set: Average loss: 0.0581, Accuracy: 1439/1470 (97.9%)
+
+Test set: Average loss: 0.0638, Accuracy: 1443/1470 (98.2%)
+
+Saved best model with accuracy: 0.9816
+Test set: Average loss: 0.0591, Accuracy: 1446/1470 (98.4%)
+
+Saved best model with accuracy: 0.9837
+Test set: Average loss: 0.0574, Accuracy: 1436/1470 (97.7%)
+
+Test set: Average loss: 0.1055, Accuracy: 1430/1470 (97.3%)
+
+Test set: Average loss: 0.0513, Accuracy: 1440/1470 (98.0%)
+
+Test set: Average loss: 0.0377, Accuracy: 1447/1470 (98.4%)
+
+Saved best model with accuracy: 0.9844
+
+Final test set evaluation:
+Test set: Average loss: 0.2352, Accuracy: 2783/2947 (94.4%)
+
+
+Model saved to: ./models/best_model.pt
+Metadata saved to: ./models/metadata.json
+✓ PyTorch model saved: ./models/best_model.pt
+===== Step 2-3: Converting PyTorch → Float TFLite → Quantized int8 =====
+
+======================================================================
+STEP 1: Loading PyTorch Model
+======================================================================
+✓ Loaded PyTorch model from: ./models/best_model.pt
+
+======================================================================
+STEP 2: Converting PyTorch to LiteRT Float Model
+======================================================================
+Sample input shape: torch.Size([1, 10, 57])
+Converting with litert_torch.convert()...
+Validating conversion...
+(00:00) [START] Write Model to Bytes
+(00:00) [ DONE] Write Model to Bytes (+00:00)
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+ERROR: Subgraph reshaping is enabled by default, TFLITE_XNNPACK_DELEGATE_FLAG_ENABLE_SUBGRAPH_RESHAPING is deprecated and will be removed in the future.
+✓ Conversion validated: PyTorch and LiteRT outputs match
+
+======================================================================
+STEP 3: Exporting Float TFLite Model
+======================================================================
+✓ Float TFLite model exported: ./models/model_float.tflite
+  Size: 194.82 KB
+
+======================================================================
+STEP 4: Evaluating Float TFLite on Test Set
+======================================================================
+✓ Float TFLite test accuracy: 94.44% (2783/2947)
+
+======================================================================
+STEP 5: Quantizing with ai-edge-quantizer
+======================================================================
+Loading calibration data...
+✓ Loaded 500 calibration samples for quantization
+
+Applying quantization recipe...
+  Input: ./models/model_float.tflite
+  Output: ./models/model_int8.tflite
+Calibrating quantizer with HAR dataset...
+
+======================================================================
+STEP 6: Evaluating Quantized TFLite on Test Set
+======================================================================
+✓ Quantized TFLite test accuracy: 93.89% (2767/2947)
+
+======================================================================
+STEP 7: Verification
+======================================================================
+✓ Quantized TFLite model exported: ./models/model_int8.tflite
+  Size: 113.12 KB
+  Reduction: 41.9% (194.82 KB → 113.12 KB)
+  Accuracy drop: 0.54 percentage points
+
+======================================================================
+CONVERSION AND QUANTIZATION COMPLETE
+======================================================================
+✓ Conversion and quantization complete:
+  - Float: ./models/model_float.tflite
+  - Quantized: ./models/model_int8.tflite
+✓ Quantized TFLite model saved: ./models/model_int8.tflite
+===== Step 3: Generating C arrays from quantized model =====
+./models/model_int8_model_data.cc
+./models/model_float_model_data.cc
+✓ C array files generated:
+===== Step 4: Copying int8 model arrays into ESP32 main directory =====
+✓ Copied int8 model arrays to ../main
