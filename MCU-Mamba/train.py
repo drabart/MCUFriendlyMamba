@@ -240,24 +240,14 @@ def main():
         sys.exit(f"Unknown dataset: {dataset_type}. Choose 'mnist', 'kws' or 'har'")
 
     train_loader = torch.utils.data.DataLoader(train_ds, **train_kwargs)
-    _ = torch.utils.data.DataLoader(test_ds, **test_kwargs)  # Test loader is not used yet
+    test_loader = torch.utils.data.DataLoader(test_ds, **test_kwargs)
     validate_loader = torch.utils.data.DataLoader(val_ds, **validate_kwargs)
-    validate_loader_single = torch.utils.data.DataLoader(val_ds, **validate_single_kwargs)
 
     model_type = args.model.lower()
     print(f"Training model: {model_type}, hidden dim: {d_model}")
 
-    match model_type:
-        case "mamba-orig":
-            model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, 
-                              d_conv=d_conv, expand=expand, output_size=output_size, bit_width=bit_width).to(device)
-        case "mamba-raw":
-            model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, 
-                              d_conv=d_conv, expand=expand, output_size=output_size, bit_width=bit_width).to(device)
-        case _:
-            sys.exit(
-                "Please specify a correct model with the environment variable MODEL"
-            )
+    model = TinyMamba(input_dim=input_dim,d_model=d_model, d_state=d_state, 
+                        d_conv=d_conv, expand=expand, output_size=output_size, bit_width=bit_width).to(device)
 
     model_name = f"{dataset_type}-{model_type}"
     dry_run_name = ""
@@ -290,118 +280,7 @@ def main():
         if args.dry_run:
             break
 
-    inputs, _ = next(iter(validate_loader_single))
-    sample_input = inputs.to(device)
-
-    if args.export_onnx:
-        # --- Export to ONNX (QCDQ) ---
-        print("Exporting model")
-        model.eval()
-
-        export_onnx_qcdq(
-            model, 
-            args=sample_inputs, 
-            export_path=onnx_path, 
-            opset_version=13,
-        )
-
-        # --- Verify Accuracy of the Exported ONNX Model ---
-        def evaluate_onnx(onnx_path, loader):
-            sess = ort.InferenceSession(onnx_path)
-            input_name = sess.get_inputs()[0].name
-            correct = 0
-            for data, target in loader:
-                # ensure numpy float32 on CPU
-                input_data = data.cpu().numpy().astype(np.float32)
-                output = sess.run(None, {input_name: input_data})[0]
-                pred = np.argmax(output, axis=1)
-                correct += np.sum(pred == target.numpy())
-            return 100. * correct / len(loader.dataset)
-
-        print(f"Accuracy AFTER export (ONNX Runtime): {evaluate_onnx(onnx_path, validate_loader_single):.2f}%")
-
-    def extract_int_weights(module):
-        quant_weight = module.weight_quant(module.weight)
-
-        # Brevitas returns an IntQuantTensor here, so use its integer view when available.
-        if hasattr(quant_weight, "int"):
-            return quant_weight.int()
-
-        # Fallback for other quant tensor types: reconstruct integers from value/scale/zp.
-        scale = quant_weight.scale
-        zero_point = quant_weight.zero_point
-        return torch.round(quant_weight.value / scale + zero_point).to(torch.int8)
-
-    int_weights_by_layer = {}
-    model_params = {}
-    
-    for name, module in model.named_modules():
-        if isinstance(module, qnn.QuantLinear):
-            int_weights = extract_int_weights(module)
-            int_weights_by_layer[name] = int_weights
-            min_val = int_weights.min().item()
-            max_val = int_weights.max().item()
-            print(f"{name} int weights range: ({min_val}, {max_val})")
-            print(f"{int_weights}\n")
-            
-            # Extract quantization parameters
-            quant_weight = module.weight_quant(module.weight)
-            scale_val = quant_weight.scale.item() if hasattr(quant_weight.scale, 'item') else float(quant_weight.scale)
-            zero_point_val = quant_weight.zero_point.item() if hasattr(quant_weight.zero_point, 'item') else float(quant_weight.zero_point)
-            
-            model_params[name] = {
-                "type": "QuantLinear",
-                "in_features": module.in_features,
-                "out_features": module.out_features,
-                "bias": module.bias is not None,
-                "weights": int_weights.cpu().tolist(),
-                "weights_shape": list(int_weights.shape),
-                "weights_dtype": "int8",
-                "weight_scale": scale_val,
-                "weight_zero_point": zero_point_val,
-                "weight_bit_width": 4,
-                "weights_range": (min_val, max_val),
-            }
-            
-            if module.bias is not None:
-                model_params[name]["bias"] = module.bias.data.cpu().tolist()
-    
-    # Extract SSM parameters
-    for name, module in model.named_modules():
-        if hasattr(module, 'A_log') and hasattr(module, 'D'):
-            if name not in model_params:
-                model_params[name] = {}
-            model_params[name]["type"] = "QuantSSM"
-            model_params[name]["A_log"] = module.A_log.data.cpu().tolist()
-            model_params[name]["D"] = module.D.data.cpu().tolist()
-            model_params[name]["d_inner"] = module.d_inner
-            model_params[name]["d_state"] = module.d_state
-    
-    # Create overall model metadata
-    model_metadata = {
-        "model_type": "TinyMamba",
-        "dataset": dataset_type,
-        "model_variant": model_type,
-        "input_dim": input_dim,
-        "d_model": d_model,
-        "d_state": d_state if dataset_type != "mnist" else None,
-        "d_conv": d_conv if dataset_type != "mnist" else None,
-        "expand": expand if dataset_type != "mnist" else None,
-        "output_size": output_size,
-        "training_epochs": args.epochs,
-        "batch_size": args.batch_size,
-    }
-    
-    # Save to JSON
-    model_export_data = {
-        "metadata": model_metadata,
-        "layers": model_params,
-    }
-    
-    json_export_path = os.path.join(model_dir, model_name + dry_run_name + "_params.json")
-    with open(json_export_path, 'w') as f:
-        json.dump(model_export_data, f, indent=2)
-    print(f"\nModel parameters exported to: {json_export_path}")
+    # test(model, device, test_loader, print_stats=True)
 
 if __name__ == "__main__":
     main()

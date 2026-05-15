@@ -127,11 +127,6 @@ def main():
 
     # Create model
     print("Creating model...")
-    # model = HARLinear(
-    #     input_dim=57,
-    #     d_model=args.d_model,
-    #     output_size=6,
-    # ).to(device)
     model = HARMamba(
         input_dim=57,
         d_model=args.d_model,

@@ -111,10 +111,9 @@ if [[ "$RUN_TRAIN" -eq 1 ]]; then
     python train_linear_har.py \
         --dataset-dir "$HAR_DATASET" \
         --batch-size 32 \
-        --epochs 5 \
+        --epochs 20 \
         --d-model 64 \
-        --bit-width 8 \
-        --lr 0.001 \
+        --lr 0.002 \
         --output-dir "$OUTPUT_DIR"
 
     PYTORCH_MODEL="$OUTPUT_DIR/best_model.pt"

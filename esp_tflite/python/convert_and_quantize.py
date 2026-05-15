@@ -50,7 +50,6 @@ def _configure_quiet_logging(verbose=False):
 
 
 def _load_pytorch_model(pytorch_model_path, device):
-    # model = HARLinear(input_dim=57, d_model=64, output_size=6).to(device)
     model = HARMamba(input_dim=57, d_model=64, output_size=6).to(device)
     model.load_state_dict(torch.load(pytorch_model_path, map_location=device))
     model.eval()

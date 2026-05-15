@@ -14,7 +14,6 @@
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/recording_micro_interpreter.h"
-#include "tensorflow/lite/micro/micro_profiler.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
@@ -26,10 +25,11 @@
 
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "profiler.h"
 
 // Namespace to avoid conflicts
 namespace {
-constexpr int kTensorArenaSize = 100 * 1024;
+constexpr int kTensorArenaSize = 60 * 1024;
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Model constants (update these for your model)
@@ -87,8 +87,7 @@ void setup() {
     resolver.AddGreater();
     resolver.AddBroadcastTo();
 
-    tflite::MicroProfiler profiler = tflite::MicroProfiler();
-    printf("Profiler size: %d bytes\n", sizeof(profiler));
+    tflite::CustomProfiler<512, 20> profiler;
 
     static tflite::RecordingMicroInterpreter interpreter(
         model, resolver, tensor_arena, kTensorArenaSize, nullptr, &profiler);
@@ -183,11 +182,11 @@ void setup() {
 
     // Print out detailed allocation information:
     interpreter.GetMicroAllocator().PrintAllocations();
-    profiler.Log();
+    profiler.LogGrouped();
 
     // Check the stack of the current running task
     UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
-    printf("Stack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark * 4);
+    printf("\nStack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark * 4);
 
     printf("\n=== Inference test completed ===\n");
 }
