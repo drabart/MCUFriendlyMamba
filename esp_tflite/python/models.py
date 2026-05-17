@@ -73,6 +73,12 @@ class HARMamba(nn.Module):
         self.linear_in = nn.Linear(input_dim, d_model, bias=False)
         
         # Non-quantized MAMBA block
+        # self.mamba = MambaBlock(
+        #     d_model=d_model, 
+        #     d_state=d_state, 
+        #     d_conv=d_conv, 
+        #     expand=expand
+        # )
         self.mamba = MambaBlock(
             d_model=d_model, 
             d_state=d_state, 

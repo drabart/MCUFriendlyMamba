@@ -10,6 +10,9 @@
  * 3. Build and flash to ESP32
  */
 
+// Define to choose between quantized (int8) and float models
+#define USE_QUANTIZED_MODEL 1
+
 #include "run_inference.h"
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
@@ -20,8 +23,11 @@
 #include "tensorflow/lite/micro/kernels/micro_ops.h"
 
 // Include generated model data
+#if USE_QUANTIZED_MODEL
 #include "model_int8_model_data.h"
-// #include "model_float_model_data.h"
+#else
+#include "model_float_model_data.h"
+#endif
 
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -29,7 +35,7 @@
 
 // Namespace to avoid conflicts
 namespace {
-constexpr int kTensorArenaSize = 60 * 1024;
+constexpr int kTensorArenaSize = 100 * 1024;
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Model constants (update these for your model)
@@ -54,8 +60,11 @@ void setup() {
     tflite::InitializeTarget();
     
     // Load model
-    // const tflite::Model* model = tflite::GetModel(g_model_float_model_data);
+#if USE_QUANTIZED_MODEL
     const tflite::Model* model = tflite::GetModel(g_model_int8_model_data);
+#else
+    const tflite::Model* model = tflite::GetModel(g_model_float_model_data);
+#endif
     if (model->version() != TFLITE_SCHEMA_VERSION) {
         printf("ERROR: Model version mismatch!\n");
         return;
@@ -63,7 +72,7 @@ void setup() {
     printf("Model loaded successfully\n");
     
     // Create interpreter
-    static tflite::MicroMutableOpResolver<20> resolver;
+    static tflite::MicroMutableOpResolver<21> resolver;
     resolver.AddFullyConnected();
     resolver.AddReshape();
     resolver.AddMul();
@@ -88,6 +97,8 @@ void setup() {
     resolver.AddBroadcastTo();
     resolver.AddRelu();
 
+    resolver.AddConcatenation();
+
     tflite::CustomProfiler<512, 20> profiler;
 
     static tflite::RecordingMicroInterpreter interpreter(
@@ -103,35 +114,46 @@ void setup() {
     TfLiteTensor* input = interpreter.input(0);
     TfLiteTensor* output = interpreter.output(0);
 
+    printf("Model Type: %s\n", USE_QUANTIZED_MODEL ? "INT8 Quantized" : "Float32");
+    
     printf("Input shape: ");
     for (int i = 0; i < input->dims->size; i++) {
         printf("%d ", input->dims->data[i]);
     }
-    printf("Input params: %f %ld\n", input->params.scale, input->params.zero_point);
     printf("\n");
+    printf("Input dtype: %s, scale: %f, zero_point: %ld\n", 
+           input->type == kTfLiteInt8 ? "INT8" : "FLOAT32", 
+           input->params.scale, input->params.zero_point);
     
     printf("Output shape: ");
     for (int i = 0; i < output->dims->size; i++) {
         printf("%d ", output->dims->data[i]);
-        printf(" ");
     }
     printf("\n");
+    printf("Output dtype: %s, scale: %f, zero_point: %ld\n", 
+           output->type == kTfLiteInt8 ? "INT8" : "FLOAT32", 
+           output->params.scale, output->params.zero_point);
     
     // Test inference with dummy data
     printf("\n--- Running inference with dummy data ---\n");
 
-    // Fill input with random-ish test data
+    // Fill input with test data respecting quantization parameters
     if (input->type == kTfLiteInt8) {
-        // Quantized input
+        // Quantized input: use quantization parameters
         int8_t* input_data = tflite::GetTensorData<int8_t>(input);
+        int8_t zero_point = (int8_t)input->params.zero_point;
+        float scale = input->params.scale;
+        // Generate values around zero_point with some variation
         for (int i = 0; i < kInputLength; i++) {
-            input_data[i] = (int8_t)(i % 128 - 64);  // Range: -64 to 63
+            int8_t offset = (int8_t)((i % 50) - 25);  // Range: -25 to 24
+            input_data[i] = zero_point + offset;
         }
     } else if (input->type == kTfLiteFloat32) {
-        // Float input
+        // Float input: use normalized ranges (-1 to 1 is typical for sensor data)
         float* input_data = tflite::GetTensorData<float>(input);
         for (int i = 0; i < kInputLength; i++) {
-            input_data[i] = (float)(i % 100) / 100.0f;
+            // Generate normalized sensor-like data
+            input_data[i] = (float)((i % 100) - 50) / 100.0f;  // Range: -0.5 to 0.49
         }
     }
     
@@ -152,25 +174,24 @@ void setup() {
     // Process output
     printf("\n--- Inference Results ---\n");
     
+    // Find predicted class and display results
+    int predicted_class = 0;
+    
     if (output->type == kTfLiteInt8) {
         int8_t* output_data = tflite::GetTensorData<int8_t>(output);
+        int8_t max_value = output_data[0];
         for (int i = 0; i < kOutputLength; i++) {
             printf("%s: %d\n", ACTIVITY_LABELS[i], (int)output_data[i]);
+            if (output_data[i] > max_value) {
+                max_value = output_data[i];
+                predicted_class = i;
+            }
         }
     } else if (output->type == kTfLiteFloat32) {
         float* output_data = tflite::GetTensorData<float>(output);
+        float max_value = output_data[0];
         for (int i = 0; i < kOutputLength; i++) {
             printf("%s: %f\n", ACTIVITY_LABELS[i], output_data[i]);
-        }
-    }
-    
-    // Find predicted class
-    int predicted_class = 0;
-    int max_value = -128;
-    
-    if (output->type == kTfLiteInt8) {
-        int8_t* output_data = tflite::GetTensorData<int8_t>(output);
-        for (int i = 0; i < kOutputLength; i++) {
             if (output_data[i] > max_value) {
                 max_value = output_data[i];
                 predicted_class = i;
@@ -184,8 +205,8 @@ void setup() {
     // Print out detailed allocation information:
     interpreter.GetMicroAllocator().PrintAllocations();
 
-    printf("\n--- Precise Profiling Results ---\n");
-    profiler.LogPrecise();
+    // printf("\n--- Precise Profiling Results ---\n");
+    // profiler.LogPrecise();
     
     printf("\n--- Grouped Profiling Results ---\n");
     profiler.LogGrouped();

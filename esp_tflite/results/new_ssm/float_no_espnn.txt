@@ -1,0 +1,301 @@
+ets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0040,len:6596
+load:0x40078000,len:16752
+ho 0 tail 12 room 4
+load:0x40080400,len:4348
+--- 0x40080400: _invalid_pc_placeholder at /home/drabart/.espressif/v6.0.1/esp-idf/components/xtensa/xtensa_vectors.S:2227entry 0x40080664
+[0;32mI (29) boot: ESP-IDF v6.0.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time May 15 2026 01:02:06[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (30) boot: chip revision: v1.0[0m
+[0;32mI (33) qio_mode: Enabling default flash chip QIO[0m
+[0;32mI (37) boot.esp32: SPI Speed      : 80MHz[0m
+[0;32mI (41) boot.esp32: SPI Mode       : QIO[0m
+[0;32mI (44) boot.esp32: SPI Flash Size : 4MB[0m
+[0;32mI (48) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (61) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (68) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (74) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (81) boot: End of partition table[0m
+[0;32mI (84) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=3cbd0h (248784) map[0m
+[0;32mI (159) esp_image: segment 1: paddr=0004cbf8 vaddr=3ffb0000 size=0289ch ( 10396) load[0m
+[0;32mI (162) esp_image: segment 2: paddr=0004f49c vaddr=40080000 size=00b7ch (  2940) load[0m
+[0;32mI (164) esp_image: segment 3: paddr=00050020 vaddr=400d0020 size=2c6e4h (181988) map[0m
+[0;32mI (219) esp_image: segment 4: paddr=0007c70c vaddr=40080b7c size=09464h ( 37988) load[0m
+[0;32mI (232) esp_image: segment 5: paddr=00085b78 vaddr=50000000 size=00028h (    40) load[0m
+[0;32mI (237) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (238) boot: Disabling RNG early entropy source...[0m
+[0;32mI (250) cpu_start: Multicore app[0m
+[0;32mI (258) cpu_start: GPIO 3 and 1 are used as console UART I/O pins[0m
+[0;32mI (258) cpu_start: Pro cpu start user code[0m
+[0;32mI (258) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (260) app_init: Application information:[0m
+[0;32mI (264) app_init: Project name:     hello_world[0m
+[0;32mI (268) app_init: App version:      7addcf7-dirty[0m
+[0;32mI (273) app_init: Compile time:     May 17 2026 11:29:17[0m
+[0;32mI (278) app_init: ELF file SHA256:  d28a7b437...[0m
+[0;32mI (282) app_init: ESP-IDF:          v6.0.1[0m
+[0;32mI (286) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (290) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (294) efuse_init: Chip rev:         v1.0[0m
+[0;32mI (298) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (304) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (309) heap_init: At 3FFCC7C0 len 00013840 (78 KiB): DRAM[0m
+[0;32mI (314) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (319) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (325) heap_init: At 40089FE0 len 00016020 (88 KiB): IRAM[0m
+[0;32mI (331) spi_flash: detected chip: generic[0m
+[0;32mI (334) spi_flash: flash io: qio[0m
+[0;32mI (337) main_task: Started on CPU0[0m
+[0;32mI (347) main_task: Calling app_main()[0m
+
+
+=== ESP32 HAR Inference Test ===
+Model loaded successfully
+Tensors allocated successfully
+Model Type: Float32
+Input shape: 1 10 57 
+Input dtype: FLOAT32, scale: 0.000000, zero_point: 0
+Output shape: 1 6 
+Output dtype: FLOAT32, scale: 0.000000, zero_point: 0
+
+--- Running inference with dummy data ---
+Inference completed in 
+86329 microseconds
+
+--- Inference Results ---
+WALKING: -1.113555
+WALKING_UPSTAIRS: -1.099906
+WALKING_DOWNSTAIRS: 2.504598
+SITTING: 0.154962
+STANDING: -0.779589
+LAYING: 1.514176
+
+Predicted Activity: WALKING_DOWNSTAIRS
+[RecordingMicroAllocator] Arena allocation total 74184 bytes
+[RecordingMicroAllocator] Arena allocation head 57216 bytes
+[RecordingMicroAllocator] Arena allocation tail 16968 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 2844 bytes with alignment overhead (requested 2844 bytes for 237 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 80 bytes with alignment overhead (requested 80 bytes for 2 tensors)
+[RecordingMicroAllocator] 'Persistent buffer data' used 5320 bytes with alignment overhead (requested 4528 bytes for 90 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 6144 bytes with alignment overhead (requested 6144 bytes for 192 NodeAndRegistration structs)
+
+--- Precise Profiling Results ---
+FULLY_CONNECTED took 2100 us.
+FULLY_CONNECTED took 4853 us.
+RESHAPE took 50 us.
+TRANSPOSE took 110 us.
+RESHAPE took 26 us.
+TRANSPOSE took 58 us.
+PAD took 280 us.
+DEPTHWISE_CONV_2D took 6186 us.
+RESHAPE took 30 us.
+TRANSPOSE took 83 us.
+SLICE took 311 us.
+RELU took 73 us.
+TRANSPOSE took 41 us.
+FULLY_CONNECTED took 597 us.
+FULLY_CONNECTED took 810 us.
+RESHAPE took 24 us.
+FULLY_CONNECTED took 1123 us.
+RESHAPE took 14 us.
+FULLY_CONNECTED took 1139 us.
+RESHAPE took 25 us.
+RESHAPE took 24 us.
+SLICE took 114 us.
+RESHAPE took 8 us.
+SLICE took 15 us.
+RESHAPE took 6 us.
+SLICE took 14 us.
+RESHAPE took 4 us.
+SLICE took 68 us.
+RESHAPE took 6 us.
+MUL took 309 us.
+MUL took 211 us.
+MUL took 327 us.
+SUM took 2156 us.
+SLICE took 77 us.
+RESHAPE took 7 us.
+SLICE took 14 us.
+RESHAPE took 4 us.
+SLICE took 13 us.
+RESHAPE took 6 us.
+SLICE took 65 us.
+RESHAPE took 7 us.
+MUL took 534 us.
+EXP took 1975 us.
+MUL took 243 us.
+MUL took 203 us.
+MUL took 211 us.
+ADD took 203 us.
+MUL took 315 us.
+SUM took 2134 us.
+SLICE took 103 us.
+RESHAPE took 11 us.
+SLICE took 13 us.
+RESHAPE took 4 us.
+SLICE took 13 us.
+RESHAPE took 6 us.
+SLICE took 65 us.
+RESHAPE took 7 us.
+MUL took 317 us.
+EXP took 2094 us.
+MUL took 251 us.
+MUL took 185 us.
+MUL took 209 us.
+ADD took 192 us.
+MUL took 312 us.
+SUM took 2128 us.
+SLICE took 102 us.
+RESHAPE took 12 us.
+SLICE took 13 us.
+RESHAPE took 5 us.
+SLICE took 16 us.
+RESHAPE took 4 us.
+SLICE took 67 us.
+RESHAPE took 6 us.
+MUL took 333 us.
+EXP took 1954 us.
+MUL took 248 us.
+MUL took 195 us.
+MUL took 222 us.
+ADD took 188 us.
+MUL took 326 us.
+SUM took 2123 us.
+SLICE took 102 us.
+RESHAPE took 11 us.
+SLICE took 12 us.
+RESHAPE took 5 us.
+SLICE took 16 us.
+RESHAPE took 5 us.
+SLICE took 65 us.
+RESHAPE took 6 us.
+MUL took 326 us.
+EXP took 2108 us.
+MUL took 248 us.
+MUL took 189 us.
+MUL took 209 us.
+ADD took 191 us.
+MUL took 314 us.
+SUM took 2122 us.
+SLICE took 102 us.
+RESHAPE took 11 us.
+SLICE took 15 us.
+RESHAPE took 4 us.
+SLICE took 15 us.
+RESHAPE took 4 us.
+SLICE took 65 us.
+RESHAPE took 8 us.
+MUL took 295 us.
+EXP took 1993 us.
+MUL took 247 us.
+MUL took 187 us.
+MUL took 211 us.
+ADD took 190 us.
+MUL took 313 us.
+SUM took 2129 us.
+SLICE took 104 us.
+RESHAPE took 10 us.
+SLICE took 15 us.
+RESHAPE took 4 us.
+SLICE took 12 us.
+RESHAPE took 5 us.
+SLICE took 65 us.
+RESHAPE took 6 us.
+MUL took 289 us.
+EXP took 2035 us.
+MUL took 251 us.
+MUL took 185 us.
+MUL took 210 us.
+ADD took 189 us.
+MUL took 314 us.
+SUM took 2123 us.
+SLICE took 101 us.
+RESHAPE took 12 us.
+SLICE took 12 us.
+RESHAPE took 6 us.
+SLICE took 12 us.
+RESHAPE took 6 us.
+SLICE took 65 us.
+RESHAPE took 10 us.
+MUL took 295 us.
+EXP took 1983 us.
+MUL took 247 us.
+MUL took 191 us.
+MUL took 212 us.
+ADD took 189 us.
+MUL took 313 us.
+SUM took 2137 us.
+SLICE took 103 us.
+RESHAPE took 11 us.
+SLICE took 15 us.
+RESHAPE took 4 us.
+SLICE took 15 us.
+RESHAPE took 4 us.
+SLICE took 69 us.
+RESHAPE took 6 us.
+MUL took 333 us.
+EXP took 1973 us.
+MUL took 248 us.
+MUL took 195 us.
+MUL took 214 us.
+ADD took 193 us.
+MUL took 315 us.
+SUM took 2125 us.
+SLICE took 103 us.
+RESHAPE took 11 us.
+SLICE took 14 us.
+RESHAPE took 5 us.
+SLICE took 13 us.
+RESHAPE took 5 us.
+SLICE took 67 us.
+RESHAPE took 6 us.
+MUL took 340 us.
+EXP took 2106 us.
+MUL took 252 us.
+MUL took 193 us.
+MUL took 214 us.
+ADD took 188 us.
+MUL took 321 us.
+SUM took 2123 us.
+CONCATENATION took 97 us.
+RESHAPE took 28 us.
+MUL took 226 us.
+ADD took 118 us.
+FULLY_CONNECTED took 4875 us.
+MUL took 196 us.
+FULLY_CONNECTED took 4709 us.
+TRANSPOSE took 92 us.
+RESHAPE took 26 us.
+SUM took 879 us.
+MUL took 115 us.
+RESHAPE took 5 us.
+GATHER_ND took 70 us.
+RESHAPE took 7 us.
+FULLY_CONNECTED took 108 us.
+
+--- Grouped Profiling Results ---
+FULLY_CONNECTED took 20314 us.
+RESHAPE took 527 us.
+TRANSPOSE took 384 us.
+PAD took 280 us.
+DEPTHWISE_CONV_2D took 6186 us.
+SLICE took 2260 us.
+RELU took 73 us.
+MUL took 13159 us.
+SUM took 22179 us.
+EXP took 18221 us.
+ADD took 1841 us.
+CONCATENATION took 97 us.
+GATHER_ND took 70 us.
+
+Stack High Water Mark: 18064 bytes remaining
+
+=== Inference test completed ===

@@ -180,6 +180,9 @@ if [[ "$COPY_MODEL_ARRAYS" -eq 1 ]]; then
     cp -f "$OUTPUT_DIR/model_int8_model_data.cc" "$MAIN_DIR/model_int8_model_data.cc"
     cp -f "$OUTPUT_DIR/model_int8_model_data.h" "$MAIN_DIR/model_int8_model_data.h"
 
+    cp -f "$OUTPUT_DIR/model_float_model_data.cc" "$MAIN_DIR/model_float_model_data.cc"
+    cp -f "$OUTPUT_DIR/model_float_model_data.h" "$MAIN_DIR/model_float_model_data.h"
+
     [ -f "$MAIN_DIR/model_int8_model_data.cc" ] || print_error "Failed to copy int8 model source to $MAIN_DIR"
     [ -f "$MAIN_DIR/model_int8_model_data.h" ] || print_error "Failed to copy int8 model header to $MAIN_DIR"
     print_info "✓ Copied int8 model arrays to $MAIN_DIR"

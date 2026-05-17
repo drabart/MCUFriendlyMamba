@@ -1,0 +1,194 @@
+\documentclass[english, a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{geometry}
+\usepackage{url}
+\usepackage{babel}
+\usepackage{csquotes}
+\usepackage{longtable}
+\usepackage[]{biblatex}
+\addbibresource{bibliography.bib}
+\geometry{verbose,tmargin=3cm,bmargin=3cm,lmargin=3cm,rmargin=3cm}
+
+\title{
+    Research Plan for CSE3000 Research Project\\
+    {\Large \textit{MCU-Friendly Mamba}}
+}
+\author{Bartosz Drabinski}
+
+\begin{document}
+\maketitle
+
+
+\section*{Background of the research}
+This research explores the deployment of Mamba architecture inference \cite{mamba} on microcontrollers. The main objective is to make this architecture practical on resource-constrained edge devices. If successful, this can improve on-device performance for tasks such as keyword spotting in audio data and human activity recognition from smartphone IMU signals.
+
+Several papers have already addressed this direction, including "MambaLite-Micro: Memory-Optimized Mamba Inference on MCUs" \cite{MambaLite-Micro2025}. Although that work provides a working MCU implementation, many optimization opportunities remain underexplored, especially techniques for reducing peak memory usage and applying quantization.
+
+\section*{Research Question}
+The main question I aim to answer is: "What optimizations can be implemented to improve the performance of Mamba inference on microcontrollers, and what are the trade-offs between memory usage, speed, and accuracy?"
+
+MambaLite-Micro \cite{MambaLite-Micro2025} already provides a strong baseline for experimentation. It supports training Mamba models on a PC GPU, exporting trained weights to C, and deploying inference on a microcontroller. This pipeline allows me to focus directly on optimization experiments instead of first building the full training-to-deployment integration. With a well-structured plan, completing these experiments within the 10-week project window is realistic.
+
+I expect to test model quantization and investigate at least two of the three suggested memory-optimization strategies. If time permits, I will also explore additional optimizations and build a practical demonstration that showcases a realistic downstream use case. The intended outcome is an improved Mamba inference implementation for devices with limited memory.
+
+Here are the sub-questions that can be posed to split the main question:
+\begin{itemize}
+    \item How does quantization on different levels (e.g. int8, int4, mixed) affect the speed and accuracy of Mamba inference on microcontrollers?
+    \item What is the main memory bottleneck in the current implementation, and how does memory usage evolve across the full inference pipeline?
+    \item To what extent can low-rank factorization, block-wise updates, and rolling state caching reduce peak memory usage, and what latency and accuracy trade-offs do they introduce?
+    \item What hardware-aware optimizations can be applied to reduce inference time on target MCUs?
+\end{itemize}
+
+Expected project contributions are:
+\begin{itemize}
+    \item a reproducible benchmark setup for Mamba inference on MCUs,
+    \item an empirical comparison of memory and latency optimizations,
+    \item practical implementation guidance for MCU-constrained deployments.
+\end{itemize}
+
+\section*{Method}
+
+The research in this sub-project does not directly depend on the other sub-projects. The other projects focus more on model accuracy, robustness, and capability extension, while this work focuses on trade-offs between memory usage, latency, and accuracy. Although there is no strong code-level overlap, the shared theme of on-device machine learning still allows for knowledge exchange, especially around hardware-related issues.
+
+I will primarily build on the codebase from the previous paper. The training stage uses Python with PyTorch, and the inference stage is written in C for MCU execution. To accelerate training, I will configure PyTorch with GPU support. I will begin with the datasets used in MambaLite-Micro: the HAR dataset \cite{human_activity_recognition_using_smartphones_240} and the Speech Commands dataset \cite{warden2018speechcommandsdatasetlimitedvocabulary}. The target hardware will most likely be selected from supervisor-recommended boards (Raspberry Pi Pico, Arduino Nano 33 BLE) and boards used in MambaLite-Micro (ESP32-S3, STM32H7).
+
+The evaluation methodology will compare each optimization variant against a fixed MambaLite-Micro baseline. I will report peak RAM usage, flash footprint, inference latency, and task accuracy, while keeping datasets, preprocessing, and evaluation splits consistent across experiments. All implementation variants will be benchmarked with the same protocol to make comparisons fair and reproducible.
+
+To track progress, papers, experiments, meetings, and deadlines, I will maintain a personal research journal (as recommended in the research methods boot camp) using SilverBullet. I will manage literature with Zotero and version all experiment code and LaTeX documents with git. This workflow should support transparency, reproducibility, and reliable tracking of changes across experiment iterations.
+
+The project scope focuses on inference-time optimization and benchmarking. It does not include collecting new datasets or redesigning the full Mamba architecture from scratch. Key risks include hardware availability, unstable firmware/toolchains, and long experiment turnaround time. To mitigate these risks, I will prioritize early hardware setup, keep backup boards available, and maintain a fallback benchmarking path on desktop for quick iteration.
+
+My tasks include:
+\begin{itemize}
+    \item an initial literature review focused on Mamba references, quantization, and memory-efficient inference methods,
+    \item setting up and benchmarking the MambaLite-Micro environment on MCU hardware,
+    \item implementing and evaluating optimization strategies,
+    \item identifying performance and memory bottlenecks,
+    \item creating a practical model demonstration,
+    \item writing and revising paper chapters based on feedback,
+    \item creating the research poster,
+    \item completing peer review,
+    \item presenting my results.
+\end{itemize}
+
+\section*{Planning of the research project}
+
+Answering the research question requires a strong understanding of the subject, a careful review of related work, and systematic experimentation on real datasets. The project combines theoretical analysis with practical implementation and benchmarking.
+
+\subsection*{Milestones}
+In the first two weeks, I will identify and study the most relevant papers and supporting sources. During the same period, I will set up the required environments to run baseline models from prior work.
+
+In Week 3, I will focus on identifying implementation bottlenecks and limitations in prior approaches.
+
+This analysis will guide the selection of optimization techniques, including methods suggested by the supervisor and additional methods identified during initial research. This selection and implementation phase will take place in Weeks 4--5. By the midterm presentation, I aim to complete most of the literature review and produce initial memory-optimization results on real MCUs.
+
+During Weeks 5--6, I will continue experiments focused on memory and latency optimization. In parallel, I will start assembling the research paper by finalizing the chapter structure and drafting sections based on insights from literature and experiments.
+
+If by Week 7 the research breadth is sufficient, I will consolidate the work into a demonstration that showcases an MCU-based downstream task, such as keyword spotting.
+
+Weeks 8--9 will focus primarily on improving the paper, adding figures, and creating the research poster. These weeks should avoid introducing entirely new methods; instead, experiments will refine selected approaches and collect stronger evidence for presentation.
+
+Week 10 will be dedicated to final presentation preparation rather than new experiments, with possible final improvements to the demonstration. Since the sub-projects only partially overlap, each team member will prepare a brief topic introduction for their own part. As a group, we will coordinate slide content to reduce overlap, decide presentation order, and run a mock presentation.
+
+\subsection*{Meetings}
+
+The sub-projects in our research theme are distinct: we work on separate codebases, with alignment mainly at the topic level. Therefore, we did not schedule regular peer-only meetings. If needed, we will contact each other directly and organize ad hoc discussions to exchange ideas or compare writing and presentation approaches.
+
+We have scheduled a weekly meeting with both supervisors and the responsible professor. These meetings will focus on reporting weekly progress and discussing general questions. More specific technical questions will be handled directly with the supervisor when needed.
+
+\subsection*{Activities description}
+
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+\begin{longtable}{p{1.0cm} p{3.1cm} p{7.0cm} p{3.0cm}}
+\hline
+\textbf{Week} & \textbf{Category} & \textbf{Activity} & \textbf{Est. Time} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Week} & \textbf{Category} & \textbf{Activity} & \textbf{Est. Time} \\
+\hline
+\endhead
+\hline
+\endfoot
+
+1 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Literature review & Read through the Mamba paper references (titles and abstracts) to select relevant ones for this project & 4 h \\
+    & Literature review & Find and read at least 2 papers about quantization & 5 h \\
+    & Literature review & Find and read at least 2 papers about memory optimizations for matrix multiplication & 5 h \\
+    & Environment setup & Setup environment from the MambaLite-Micro paper & 4 h \\
+    & Deliverables & Finish and submit research plan & 1 h (deadline 26-04) \\
+    & Deliverables & Create and submit research plan presentation & 1 h (deadline 26-04) \\
+\hline
+
+2 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Literature review & Look for more related work and how tasks like human activity recognition and keyword detection are currently performed &  \\
+    & Literature review & Look and read more papers about optimizations used for running machine learning on MCUs & 8 h \\
+    & Benchmarking & Run a model on an MCU and benchmark it & 8 h \\
+    & Coursework & Do ACS Assignment 1 & 6 h (deadline 01-05) \\
+\hline
+
+3 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Writing & Decide on the chapter structure of the paper & 3 h \\
+    & Analysis & Find the limitations of current model & \\
+    & Experiments & Implement first optimizations & 8 h \\
+    & Coursework & Do ACS Assignment 2 & 6 h (deadline 08-05) \\
+\hline
+
+4 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Planning & Set the date for final presentation & \\
+    & Experiments & Start doing more experiments by implementing optimization strategies and testing their effectiveness & 8 h \\
+    & Literature review & Continue looking for related research based on the initial experiment findings &  \\
+    & Writing & Start writing the paper chapter contents & 8 h \\
+\hline
+
+5 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Experiments & Continue doing experiments concerning memory optimizations &  \\
+    & Writing & Continue filling in the chapters &  \\
+    & Presentation preparation & Prepare for the midterm presentation & 3 h (deadline 20-05) \\
+    & Coursework & Do ACS Assignment 3 & 6 h (deadline 22-05) \\
+\hline
+
+6 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Demonstration planning & Choose the final topic of the demonstration to do & 1 h \\
+    & Demonstration & Start initial work on the demonstration & 8 h \\
+    & Writing & Continue writing the paper based on the feedback received &  \\
+    & Experiments & Continue with performing some experiments &  \\
+\hline
+
+7 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Demonstration & Continue working on the demonstration &  \\
+    & Experiments & Continue doing experiments aimed more towards the demonstration &  \\
+    & Writing & Continue filling in the paper with the findings and mention the demo &  \\
+    & Deliverables & Submit draft v1 & (deadline 02-06) \\
+    & Deliverables & Submit peer review of draft v1 & (deadline 04-06)  \\
+\hline
+
+8 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Experiments & Do the final experiments & 8 h \\
+    & Writing & Add more figures to the research paper & 8 h \\
+    & Poster & Start working on the research poster & 8 h \\
+    & Demonstration & Continue work on the demonstration & \\
+    & Deliverables & Submit draft v2 & (deadline 10-06) \\
+\hline
+
+9 & Meetings & Professor and supervisors meeting & 1 h \\
+    & Revision & Check what needs to be corrected after feedback v2 & 6 h \\
+    & Writing & Finalize the paper with last review and small changes & 8 h \\
+    & Poster & Continue working on the research poster & \\
+    & Deliverables & Submit the final version of the paper & (deadline 21-06) \\
+\hline
+
+10 & Coordination & Compare my presentation with team members' & 2 h \\
+     & Deliverables & Submit the poster & (deadline 22-06)\\
+    & Presentation preparation & Finish up the slides for my presentation & 4 h \\
+    & Presentation preparation & Practice my own presentation & \\
+     & Coordination & Do a mock presentation with team members & 2 h \\
+     & Deliverables & Do the final presentation & 2 h \\
+\hline
+\end{longtable}
+
+\printbibliography 
+
+\end{document}

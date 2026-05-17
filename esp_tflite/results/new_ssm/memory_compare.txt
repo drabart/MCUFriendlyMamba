@@ -1,0 +1,7 @@
+[RecordingMicroAllocator] Arena allocation total 48188 bytes
+[RecordingMicroAllocator] Arena allocation head 24544 bytes
+[RecordingMicroAllocator] Arena allocation tail 23644 bytes
+
+[RecordingMicroAllocator] Arena allocation total 74184 bytes
+[RecordingMicroAllocator] Arena allocation head 57216 bytes
+[RecordingMicroAllocator] Arena allocation tail 16968 bytes

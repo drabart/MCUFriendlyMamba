@@ -2,52 +2,73 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import torch
+import torch.nn as nn
+
 class SelectiveScanSequential(nn.Module):
-    """Selective Scan operator as an nn.Module for proper model visualization."""
+    """Selective Scan operator optimized for TFLite conversion and quantization."""
 
     def __init__(self):
         super().__init__()
 
     def forward(self, u, delta, A, B, C, D):
-        """Apply selective scan sequentially.
-        
-        Args:
-            u: Input tensor of shape (batch, length, channels)
-            delta: Delta/step tensor of shape (batch, length, channels)
-            A: State matrix of shape (channels, state_dim)
-            B: Input projection of shape (batch, length, state_dim)
-            C: Output projection of shape (batch, length, state_dim)
-            D: Direct feedthrough of shape (channels,)
-            
-        Returns:
-            Output tensor of shape (batch, length, channels)
-        """
         b, l, e = u.shape
         n = A.shape[1]
 
+        # Reshape D for clean broadcasting without dynamic slicing in the loop
+        # D shape: (channels,) -> (1, 1, channels)
+        D_proj = D.view(1, 1, e)
+
+        # Pre-reshape inputs to avoid repetitive unsqueezing inside the loop
+        # delta: (b, l, e) -> (b, l, e, 1)
+        delta_expanded = delta.unsqueeze(-1)
+        
+        # B and C: (b, l, n) -> (b, l, 1, n)
+        B_expanded = B.unsqueeze(2)
+        C_expanded = C.unsqueeze(2)
+        
+        # u: (b, l, e) -> (b, l, e, 1)
+        u_expanded = u.unsqueeze(-1)
+
+        # Initialize hidden state
         h = torch.zeros(b, e, n, device=u.device, dtype=u.dtype)
-        ys = torch.empty(b, l, e, device=u.device, dtype=u.dtype)
+        
+        # Use a list to collect outputs instead of in-place tensor assignment
+        ys_list = []
+
+        # Reshape A for explicit broadcasting: (1, e, n)
+        A_reshaped = A.unsqueeze(0)
 
         for t in range(l):
-            delta_t = delta[:, t, :, None]
-            # A_bar = torch.exp(delta_t * A)
-            A_bar = delta_t * A
+            # Grab slices for timestep t (slicing along dim 1 is TFLite friendly)
+            delta_t = delta_expanded[:, t]  # (b, e, 1)
+            B_t = B_expanded[:, t]          # (b, 1, n)
+            C_t = C_expanded[:, t]          # (b, 1, n)
+            u_t = u_expanded[:, t]          # (b, e, 1)
 
-            B_t = B[:, t, :].unsqueeze(1)
-            B_bar = delta_t * B_t
+            # Compute A_bar and B_bar using explicit broadcasting
+            A_bar = torch.exp(delta_t * A_reshaped)    # (b, e, n)
+            B_bar = delta_t * B_t           # (b, e, n)
 
-            h = A_bar * h + B_bar * u[:, t, :, None]
+            # Update hidden state
+            h = A_bar * h + B_bar * u_t     # (b, e, n)
 
-            C_t = C[:, t, :].unsqueeze(1)
-            y = (h * C_t).sum(dim=-1) + D[None, :] * u[:, t, :]
+            # Compute output y for timestep t
+            y_t = torch.sum(h * C_t, dim=-1) # (b, e)
+            
+            ys_list.append(y_t)
 
-            ys[:, t, :] = y
+        # Stack along the time dimension: (b, l, e)
+        ys = torch.stack(ys_list, dim=1)
+
+        # Add the direct feedthrough path outside the loop (fully vectorized)
+        ys = ys + D_proj * u
 
         return ys
 
 
 class MambaBlock(nn.Module):
-    def __init__(self, d_model=64, d_state=16, d_conv=4, expand=2):
+    def __init__(self, d_model=64, d_state=16, d_conv=4, expand=2, dt_size=8):
         super().__init__()
         self.d_model = d_model
         self.d_state = d_state
@@ -67,8 +88,8 @@ class MambaBlock(nn.Module):
 
         self.x_proj_B = nn.Linear(self.d_inner, self.d_state, bias=False)
         self.x_proj_C = nn.Linear(self.d_inner, self.d_state, bias=False)
-        self.x_proj_dt = nn.Linear(self.d_inner, 8, bias=False)
-        self.dt_proj = nn.Linear(8, self.d_inner, bias=False)
+        self.x_proj_dt = nn.Linear(self.d_inner, dt_size, bias=False)
+        self.dt_proj = nn.Linear(dt_size, self.d_inner, bias=False)
 
         self.A_log = nn.Parameter(torch.randn(self.d_inner, self.d_state))
         self.D = nn.Parameter(torch.ones(self.d_inner))
@@ -85,8 +106,8 @@ class MambaBlock(nn.Module):
         state = state.transpose(1, 2)
         state = self.conv1d(state)[:, :, :l]
         
-        # state = F.silu(state)
-        state = F.relu(state)
+        state = F.silu(state)
+        # state = F.relu(state)
         
         state = state.transpose(1, 2)
 
@@ -96,14 +117,14 @@ class MambaBlock(nn.Module):
         # LoRA module
         dt = self.x_proj_dt(state)
         dt = self.dt_proj(dt)
-        # dt = F.softplus(dt)
-        dt = F.relu(dt)
+        dt = F.softplus(dt)
+        # dt = F.relu(dt)
 
         A = -torch.exp(self.A_log)
         y = self.ssm(state, dt, A, B, C, self.D)
 
-        # gate = F.silu(gate)
-        gate = F.relu(gate)
+        gate = F.silu(gate)
+        # gate = F.relu(gate)
         y = y * gate
 
         return self.out_proj(y)
