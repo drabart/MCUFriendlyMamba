@@ -5,33 +5,52 @@ import torch.nn.functional as F
 import torch
 import torch.nn as nn
 
+
 class SelectiveScanSequential(nn.Module):
     """Selective Scan operator optimized for TFLite conversion and quantization."""
 
-    def __init__(self):
+    def __init__(self, d_inner, d_state, dt_size):
         super().__init__()
+        self.x_proj_B = nn.Linear(d_inner, d_state, bias=False)
+        self.x_proj_C = nn.Linear(d_inner, d_state, bias=False)
+        self.x_proj_dt = nn.Linear(d_inner, dt_size, bias=False)
+        self.dt_proj = nn.Linear(dt_size, d_inner, bias=False)
 
-    def forward(self, u, delta, A, B, C, D):
-        b, l, e = u.shape
+        self.A_log = nn.Parameter(torch.randn(d_inner, d_state))
+        self.D = nn.Parameter(torch.ones(d_inner))
+
+    def forward(self, state):
+        b, l, e = state.shape
+
+        B = self.x_proj_B(state)
+        C = self.x_proj_C(state)
+
+        dt = self.x_proj_dt(state)
+        dt = self.dt_proj(dt)
+        dt = F.softplus(dt)
+        # dt = F.relu(dt)
+
+        A = -torch.exp(self.A_log)
+
         n = A.shape[1]
 
         # Reshape D for clean broadcasting without dynamic slicing in the loop
         # D shape: (channels,) -> (1, 1, channels)
-        D_proj = D.view(1, 1, e)
+        D_proj = self.D.view(1, 1, e)
 
         # Pre-reshape inputs to avoid repetitive unsqueezing inside the loop
         # delta: (b, l, e) -> (b, l, e, 1)
-        delta_expanded = delta.unsqueeze(-1)
+        delta_expanded = dt.unsqueeze(-1)
         
         # B and C: (b, l, n) -> (b, l, 1, n)
         B_expanded = B.unsqueeze(2)
         C_expanded = C.unsqueeze(2)
         
         # u: (b, l, e) -> (b, l, e, 1)
-        u_expanded = u.unsqueeze(-1)
+        u_expanded = state.unsqueeze(-1)
 
         # Initialize hidden state
-        h = torch.zeros(b, e, n, device=u.device, dtype=u.dtype)
+        h = torch.zeros(b, e, n, device=state.device, dtype=state.dtype)
         
         # Use a list to collect outputs instead of in-place tensor assignment
         ys_list = []
@@ -62,7 +81,7 @@ class SelectiveScanSequential(nn.Module):
         ys = torch.stack(ys_list, dim=1)
 
         # Add the direct feedthrough path outside the loop (fully vectorized)
-        ys = ys + D_proj * u
+        ys = ys + D_proj * state
 
         return ys
 
@@ -86,15 +105,7 @@ class MambaBlock(nn.Module):
             bias=False
         )
 
-        self.x_proj_B = nn.Linear(self.d_inner, self.d_state, bias=False)
-        self.x_proj_C = nn.Linear(self.d_inner, self.d_state, bias=False)
-        self.x_proj_dt = nn.Linear(self.d_inner, dt_size, bias=False)
-        self.dt_proj = nn.Linear(dt_size, self.d_inner, bias=False)
-
-        self.A_log = nn.Parameter(torch.randn(self.d_inner, self.d_state))
-        self.D = nn.Parameter(torch.ones(self.d_inner))
-
-        self.ssm = SelectiveScanSequential()
+        self.ssm = SelectiveScanSequential(d_inner=self.d_inner, d_state=self.d_state, dt_size=dt_size)
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=False)
 
     def forward(self, x):
@@ -111,17 +122,7 @@ class MambaBlock(nn.Module):
         
         state = state.transpose(1, 2)
 
-        B = self.x_proj_B(state)
-        C = self.x_proj_C(state)
-
-        # LoRA module
-        dt = self.x_proj_dt(state)
-        dt = self.dt_proj(dt)
-        dt = F.softplus(dt)
-        # dt = F.relu(dt)
-
-        A = -torch.exp(self.A_log)
-        y = self.ssm(state, dt, A, B, C, self.D)
+        y = self.ssm(state)
 
         gate = F.silu(gate)
         # gate = F.relu(gate)
