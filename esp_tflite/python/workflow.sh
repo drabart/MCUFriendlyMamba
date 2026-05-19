@@ -27,13 +27,17 @@ usage() {
 Usage: ./workflow.sh [options]
 
 Options:
+    --dataset NAME      Dataset to run (har or kws)
+    --dataset-dir P     Override the dataset root directory
   --skip-train        Reuse an existing PyTorch model instead of training a new one
   --skip-convert      Reuse existing float and quantized TFLite models
+  --skip-strip        Skip stripping tensor names from TFLite models
   --skip-generate     Skip generating C arrays from TFLite models
   --copy-model-arrays Copy the generated int8 model .cc/.h into ../main
   --pytorch-model P   Path to an existing PyTorch model checkpoint
   --float-model P     Path to an existing float TFLite model
   --quant-model P     Path to an existing quantized TFLite model
+    --d-model N         Model dimension used for training/conversion
   -h, --help          Show this help message
 EOF
 }
@@ -41,8 +45,12 @@ EOF
 # Stage control
 RUN_TRAIN=1
 RUN_CONVERT=1
+RUN_STRIP=1
 RUN_GENERATE=1
 COPY_MODEL_ARRAYS=0
+DATASET="har"
+DATASET_DIR=""
+D_MODEL=64
 
 # Artifact paths (defaults can be overridden from the command line)
 OUTPUT_DIR="./models"
@@ -53,12 +61,24 @@ MAIN_DIR="../main"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --dataset)
+            DATASET="$2"
+            shift 2
+            ;;
+        --dataset-dir)
+            DATASET_DIR="$2"
+            shift 2
+            ;;
         --skip-train)
             RUN_TRAIN=0
             shift
             ;;
         --skip-convert)
             RUN_CONVERT=0
+            shift
+            ;;
+        --skip-strip)
+            RUN_STRIP=0
             shift
             ;;
         --skip-generate)
@@ -81,6 +101,10 @@ while [[ $# -gt 0 ]]; do
             TFLITE_INT8="$2"
             shift 2
             ;;
+        --d-model)
+            D_MODEL="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -95,10 +119,27 @@ done
 
 # Configuration
 HAR_DATASET="${HAR_DATASET:=/home/drabart/Documents/ResearchProject/UCI HAR Dataset}"
+KWS_DATASET="${KWS_DATASET:=/home/drabart/Documents/ResearchProject/SpeechCommands}"
 TFLITE_MICRO="${TFLITE_MICRO:=/home/drabart/Documents/ResearchProject/tflite-micro}"
-WORKSPACE="/tmp/har_workflow"
 
-print_info "Using HAR dataset: $HAR_DATASET"
+if [[ -z "$DATASET_DIR" ]]; then
+    case "$DATASET" in
+        har)
+            DATASET_DIR="$HAR_DATASET"
+            ;;
+        kws)
+            DATASET_DIR="$KWS_DATASET"
+            ;;
+        *)
+            print_error "Unsupported dataset: $DATASET"
+            ;;
+    esac
+fi
+
+WORKSPACE="/tmp/esp_tflite_${DATASET}_workflow"
+
+print_info "Using dataset: $DATASET"
+print_info "Using dataset root: $DATASET_DIR"
 print_info "Using TFLite Micro: $TFLITE_MICRO"
 print_info "Workspace: $WORKSPACE"
 
@@ -107,12 +148,13 @@ mkdir -p "$OUTPUT_DIR"
 
 # Step 1: Train PyTorch model
 if [[ "$RUN_TRAIN" -eq 1 ]]; then
-    print_step "Step 1: Training PyTorch Linear Model on HAR Dataset"
+    print_step "Step 1: Training PyTorch Linear Model on ${DATASET^^} Dataset"
     python train_linear_har.py \
-        --dataset-dir "$HAR_DATASET" \
+        --dataset "$DATASET" \
+        --dataset-dir "$DATASET_DIR" \
         --batch-size 32 \
         --epochs 20 \
-        --d-model 64 \
+        --d-model "$D_MODEL" \
         --lr 0.002 \
         --output-dir "$OUTPUT_DIR"
 
@@ -131,12 +173,13 @@ if [[ "$RUN_CONVERT" -eq 1 ]]; then
     TFLITE_FLOAT="${TFLITE_FLOAT:-$OUTPUT_DIR/model_float.tflite}"
     TFLITE_INT8="${TFLITE_INT8:-$OUTPUT_DIR/model_int8.tflite}"
     python convert_and_quantize.py \
+        --dataset "$DATASET" \
         --pytorch-model "$PYTORCH_MODEL" \
-        --dataset-dir "$HAR_DATASET" \
+        --dataset-dir "$DATASET_DIR" \
+        --d-model "$D_MODEL" \
         --output-float "$TFLITE_FLOAT" \
         --output-quantized "$TFLITE_INT8" \
-        --calibration-samples 500 \
-        --input-shape 1 10 57
+        --calibration-samples 500
 
     [ -f "$TFLITE_FLOAT" ] || print_error "TFLite float model not created"
     [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
@@ -156,9 +199,31 @@ else
     print_info "  - Quantized: $TFLITE_INT8"
 fi
 
-# Step 3: Generate C arrays
+# Step 3: Strip tensor names from TFLite models
+if [[ "$RUN_STRIP" -eq 1 ]]; then
+    print_step "Step 3: Stripping tensor names from TFLite models"
+    SCHEMA_PATH="./models/schema.fbs"
+    
+    if [ ! -f "$SCHEMA_PATH" ]; then
+        print_error "Schema file not found: $SCHEMA_PATH"
+    fi
+    
+    # Strip int8 model
+    print_info "Stripping tensor names from: $TFLITE_INT8"
+    python strip_names.py --schema "$SCHEMA_PATH" --tflite "$TFLITE_INT8" || print_error "Failed to strip tensor names from int8 model"
+    
+    # Strip float model
+    print_info "Stripping tensor names from: $TFLITE_FLOAT"
+    python strip_names.py --schema "$SCHEMA_PATH" --tflite "$TFLITE_FLOAT" || print_error "Failed to strip tensor names from float model"
+    
+    print_info "✓ Tensor name stripping complete"
+else
+    print_info "✓ Skipping tensor name stripping"
+fi
+
+# Step 4: Generate C arrays
 if [[ "$RUN_GENERATE" -eq 1 ]]; then
-    print_step "Step 3: Generating C arrays from quantized model"
+    print_step "Step 4: Generating C arrays from quantized model"
 
     # Use local generate_cc_arrays.py
     # Pass output to a different filename so .h is not created, triggering the fallback path
@@ -176,7 +241,7 @@ else
 fi
 
 if [[ "$COPY_MODEL_ARRAYS" -eq 1 ]]; then
-    print_step "Step 4: Copying int8 model arrays into ESP32 main directory"
+    print_step "Step 5: Copying int8 model arrays into ESP32 main directory"
     cp -f "$OUTPUT_DIR/model_int8_model_data.cc" "$MAIN_DIR/model_int8_model_data.cc"
     cp -f "$OUTPUT_DIR/model_int8_model_data.h" "$MAIN_DIR/model_int8_model_data.h"
 

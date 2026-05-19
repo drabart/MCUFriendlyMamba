@@ -16,7 +16,7 @@ import warnings
 import numpy as np
 import torch
 from models import HARMamba
-from data import load_har_data
+from data import load_har_data, load_speechcommands_data
 from torch.utils.data import DataLoader
 import json
 
@@ -50,8 +50,8 @@ def _configure_quiet_logging(verbose=False):
     logging.getLogger("absl").setLevel(logging.ERROR)
 
 
-def _load_pytorch_model(pytorch_model_path, device):
-    model = HARMamba(input_dim=57, d_model=64, output_size=6).to(device)
+def _load_pytorch_model(pytorch_model_path, device, input_dim, d_model, output_size):
+    model = HARMamba(input_dim=input_dim, d_model=d_model, output_size=output_size).to(device)
     model.load_state_dict(torch.load(pytorch_model_path, map_location=device))
     model.eval()
     return model
@@ -99,11 +99,6 @@ def _export_float_model(edge_model, output_quantized, output_float=None):
     return output_float, float_size_kb
 
 
-def _get_test_loader(dataset_dir):
-    _, _, test_ds = load_har_data(dataset_dir)
-    return DataLoader(test_ds, batch_size=1, shuffle=False)
-
-
 def _build_tflite_interpreter(model_path, verbose=False):
     with _maybe_suppress_output(enabled=not verbose):
         from ai_edge_litert.interpreter import Interpreter
@@ -142,8 +137,8 @@ def _dequantize_output_if_needed(y_np, output_details):
     return (y_np.astype(np.float32) - zero_point) * scale
 
 
-def _evaluate_tflite_accuracy(model_path, dataset_dir, label, verbose=False):
-    test_loader = _get_test_loader(dataset_dir)
+def _evaluate_tflite_accuracy(model_path, test_ds, label, verbose=False):
+    test_loader = DataLoader(test_ds, batch_size=1, shuffle=False)
     interpreter = _build_tflite_interpreter(model_path, verbose=verbose)
 
     input_details = interpreter.get_input_details()[0]
@@ -174,7 +169,7 @@ def _evaluate_tflite_accuracy(model_path, dataset_dir, label, verbose=False):
     return accuracy
 
 
-def _get_calibration_data(dataset_dir, num_samples=100):
+def _get_calibration_data(train_ds, num_samples=100):
     """Load and cache calibration data from HAR dataset.
 
     The calibration data is returned as a dictionary with the signature key
@@ -190,13 +185,12 @@ def _get_calibration_data(dataset_dir, num_samples=100):
     """
     from ai_edge_quantizer.utils import tfl_interpreter_utils
 
-    _, _, test_ds = load_har_data(dataset_dir)
-    test_loader = DataLoader(test_ds, batch_size=1, shuffle=True)
+    calibration_loader = DataLoader(train_ds, batch_size=1, shuffle=True)
 
     calibration_samples = []
     count = 0
 
-    for data, _ in test_loader:
+    for data, _ in calibration_loader:
         if count >= num_samples:
             break
 
@@ -233,7 +227,7 @@ def _quantize_float_model(output_float, output_quantized, calibration_data, verb
     recipe = rp_manager.get_quantization_recipe()
     qt = quantizer.Quantizer(output_float, recipe)
 
-    print("Calibrating quantizer with HAR dataset...")
+    print("Calibrating quantizer with calibration dataset samples...")
     with _maybe_suppress_output(enabled=not verbose):
         calibration_results = qt.calibrate(calibration_data)
         quant_result = qt.quantize(calibration_results)
@@ -252,9 +246,17 @@ def _print_model_size_summary(float_size_kb, output_quantized):
     )
 
 
-def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, output_float=None, 
-                         num_calibration_samples=100, input_shape=(1, 10, 57),
-                         verbose=False):
+def convert_and_quantize(
+    pytorch_model_path,
+    dataset_name,
+    dataset_dir,
+    output_quantized,
+    output_float=None,
+    num_calibration_samples=100,
+    d_model=64,
+    input_shape=None,
+    verbose=False,
+):
     """Convert PyTorch model to quantized TFLite using ai-edge-quantizer.
     
     Process:
@@ -266,7 +268,8 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     
     Args:
         pytorch_model_path: Path to PyTorch model state_dict
-        dataset_dir: Path to HAR dataset for calibration
+        dataset_name: Dataset key to use (har or kws)
+        dataset_dir: Path to the selected dataset root for calibration and evaluation
         output_quantized: Path to save quantized TFLite model
         output_float: Path to save float TFLite model (optional)
         num_calibration_samples: Number of samples for quantization calibration
@@ -277,14 +280,36 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     """
     _configure_quiet_logging(verbose=verbose)
 
+    # Load dataset for calibration/evaluation
+    if dataset_name == "har":
+        train_ds, _, test_ds = load_har_data(dataset_dir)
+        display_name = "UCI HAR"
+        input_dim = 57
+        output_size = 6
+        resolved_input_shape = tuple(input_shape) if input_shape is not None else (1, 10, 57)
+    else:
+        train_ds, _, test_ds = load_speechcommands_data(dataset_dir)
+        display_name = "KWS (SpeechCommands)"
+        # infer input shape from first sample in train set
+        sample_x, _ = train_ds[0]
+        resolved_input_shape = tuple(input_shape) if input_shape is not None else (1,) + tuple(sample_x.shape)
+        input_dim = int(sample_x.shape[1])
+        output_size = 35
+
     _print_step(1, "Loading PyTorch Model")
     device = torch.device("cpu")
-    model = _load_pytorch_model(pytorch_model_path, device)
+    model = _load_pytorch_model(
+        pytorch_model_path,
+        device,
+        input_dim=input_dim,
+        d_model=d_model,
+        output_size=output_size,
+    )
     print(f"✓ Loaded PyTorch model from: {pytorch_model_path}")
 
     _print_step(2, "Converting PyTorch to LiteRT Float Model")
     edge_model, sample_input = _convert_to_litert_float_model(
-        model, input_shape, device, verbose=verbose
+        model, resolved_input_shape, device, verbose=verbose
     )
     _validate_conversion_close(model, edge_model, sample_input)
 
@@ -296,14 +321,14 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     _print_step(4, "Evaluating Float TFLite on Test Set")
     float_acc = _evaluate_tflite_accuracy(
         model_path=output_float,
-        dataset_dir=dataset_dir,
-        label="Float TFLite",
+        test_ds=test_ds,
+        label=f"{display_name} Float TFLite",
         verbose=verbose,
     )
 
     _print_step(5, "Quantizing with ai-edge-quantizer")
     print("Loading calibration data...")
-    calibration_data = _get_calibration_data(dataset_dir, num_samples=num_calibration_samples)
+    calibration_data = _get_calibration_data(train_ds, num_samples=num_calibration_samples)
 
     print(f"\nApplying quantization recipe...")
     print(f"  Input: {output_float}")
@@ -319,8 +344,8 @@ def convert_and_quantize(pytorch_model_path, dataset_dir, output_quantized, outp
     _print_step(6, "Evaluating Quantized TFLite on Test Set")
     quant_acc = _evaluate_tflite_accuracy(
         model_path=output_quantized,
-        dataset_dir=dataset_dir,
-        label="Quantized TFLite",
+        test_ds=test_ds,
+        label=f"{display_name} Quantized TFLite",
         verbose=verbose,
     )
 
@@ -338,6 +363,13 @@ def main():
         description="Convert PyTorch model to quantized TFLite"
     )
     parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["har", "kws"],
+        default="har",
+        help="Dataset the model was trained on (har or kws)",
+    )
+    parser.add_argument(
         "--pytorch-model",
         type=str,
         required=True,
@@ -347,7 +379,13 @@ def main():
         "--dataset-dir",
         type=str,
         required=True,
-        help="Path to HAR dataset for calibration",
+        help="Path to the selected dataset root for calibration and evaluation",
+    )
+    parser.add_argument(
+        "--d-model",
+        type=int,
+        default=64,
+        help="Model dimension used during training",
     )
     parser.add_argument(
         "--output-quantized",
@@ -371,8 +409,8 @@ def main():
         "--input-shape",
         type=int,
         nargs=3,
-        default=[1, 10, 57],
-        help="Input shape (batch, time, features)",
+        default=None,
+        help="Optional input shape (batch, time, features). If omitted, it is inferred from the dataset.",
     )
     parser.add_argument(
         "--verbose",
@@ -384,11 +422,13 @@ def main():
     
     convert_and_quantize(
         pytorch_model_path=args.pytorch_model,
+        dataset_name=args.dataset,
         dataset_dir=args.dataset_dir,
         output_quantized=args.output_quantized,
         output_float=args.output_float,
         num_calibration_samples=args.calibration_samples,
-        input_shape=tuple(args.input_shape),
+        d_model=args.d_model,
+        input_shape=tuple(args.input_shape) if args.input_shape is not None else None,
         verbose=args.verbose,
     )
 

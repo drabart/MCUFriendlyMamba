@@ -35,7 +35,7 @@
 
 // Namespace to avoid conflicts
 namespace {
-constexpr int kTensorArenaSize = 100 * 1024;
+constexpr int kTensorArenaSize = 130 * 1024;
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Model constants (update these for your model)

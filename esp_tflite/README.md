@@ -1,6 +1,6 @@
-# ESP-TFLite HAR Inference
+# ESP-TFLite Sequence Inference
 
-Human Activity Recognition (HAR) model trained in PyTorch, converted to TensorFlow Lite with quantization, and deployed on ESP32 using TensorFlow Lite Micro.
+Human Activity Recognition (HAR) and Keyword Spotting (KWS) models trained in PyTorch, converted to TensorFlow Lite with quantization, and deployed on ESP32 using TensorFlow Lite Micro.
 
 ## Prerequisites
 
@@ -23,13 +23,17 @@ pip install tensorflow litert-torch ai-edge-quantizer numpy pandas
 
 ### Data
 
-Place your HAR dataset in a directory accessible to the Python scripts. The dataset should be structured as:
+Place the selected dataset in a directory accessible to the Python scripts.
+
+HAR expects the standard UCI HAR layout:
 ```
 dataset/
 ├── train/
 ├── val/
 └── test/
 ```
+
+KWS uses the torchaudio SpeechCommands v2 download layout. Point the scripts at the root directory that contains the `SpeechCommands` data folders.
 
 ## Directory Structure
 
@@ -64,12 +68,18 @@ cd python
 ### 2. Run the Complete Workflow
 
 The `workflow.sh` script handles:
-1. **Training** – Trains HARMamba on the HAR dataset
-2. **Conversion** – Converts trained model to float TFLite, then quantizes to int8
+1. **Training** – Trains the sequence model on HAR or KWS
+2. **Conversion** – Converts the trained model to float TFLite, then quantizes to int8
 3. **C Array Generation** – Generates C++ source arrays for embedded deployment
 
 ```bash
 ./workflow.sh
+```
+
+To run KWS instead of HAR:
+
+```bash
+DATASET=kws KWS_DATASET=/path/to/SpeechCommands ./workflow.sh
 ```
 
 Expected outputs in `python/models/`:

@@ -1,5 +1,6 @@
 """Training script for linear HAR model."""
 import argparse
+import time
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -8,8 +9,8 @@ from torch.utils.data import DataLoader
 import json
 import os
 
-from data import load_har_data
-from models import HARLinear, HARMamba
+from data import load_har_data, load_speechcommands_data
+from models import HARMamba
 
 def train(model, device, train_loader, optimizer, epoch, print_stats=False, log_interval=10, dry_run=False):
     """Train for one epoch."""
@@ -66,11 +67,18 @@ def test(model, device, test_loader, print_stats=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train linear HAR model")
+    parser = argparse.ArgumentParser(description="Train a linear sequence model")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["har", "kws"],
+        default="har",
+        help="Dataset to train on (har or kws)",
+    )
     parser.add_argument(
         "--dataset-dir",
         type=str,
-        help="Path to UCI HAR dataset",
+        help="Path to the selected dataset root",
         required=True,
     )
     parser.add_argument(
@@ -117,20 +125,57 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
     print(f"Using device: {device}")
 
-    # Load data
-    print("Loading HAR dataset...")
-    train_ds, val_ds, test_ds = load_har_data(args.dataset_dir)
+    # Load data (HAR or KWS)
+    if args.dataset == "har":
+        print("Loading UCI HAR dataset...")
+        train_ds, val_ds, test_ds = load_har_data(args.dataset_dir)
+        input_dim = 57
+        output_size = 6
+        inferred_input_shape = (1, 10, 57)
+        dataset_name = "UCI HAR"
+    else:
+        print("Loading SpeechCommands (KWS) dataset...")
+        train_ds, val_ds, test_ds = load_speechcommands_data(args.dataset_dir)
+        # infer input shape from first sample: (T, F)
+        sample_x, _ = train_ds[0]
+        inferred_input_shape = (1,) + tuple(sample_x.shape)
+        input_dim = int(sample_x.shape[1])
+        output_size = 35
+        dataset_name = "KWS (SpeechCommands)"
+
     
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False)
+    train_kwargs = {"batch_size": args.batch_size, "shuffle": True}
+    validate_kwargs = {"batch_size": args.batch_size}
+    test_kwargs = {"batch_size": args.batch_size}
+    if use_cuda:
+        num_workers = 1
+        cuda_kwargs = {
+            "num_workers": num_workers,
+            "pin_memory": True,
+        }
+        train_kwargs.update(cuda_kwargs)
+        test_kwargs.update(cuda_kwargs)
+        validate_kwargs.update(cuda_kwargs)
+
+    # Improve DataLoader throughput when workers are used
+    if train_kwargs.get("num_workers", 0) > 0:
+        train_kwargs.setdefault("persistent_workers", True)
+        train_kwargs.setdefault("prefetch_factor", 2)
+    if validate_kwargs.get("num_workers", 0) > 0:
+        validate_kwargs.setdefault("persistent_workers", True)
+    if test_kwargs.get("num_workers", 0) > 0:
+        test_kwargs.setdefault("persistent_workers", True)
+
+    train_loader = DataLoader(train_ds, **train_kwargs)
+    val_loader = DataLoader(val_ds, **validate_kwargs)
+    test_loader = DataLoader(test_ds, **test_kwargs)
 
     # Create model
     print("Creating model...")
     model = HARMamba(
-        input_dim=57,
+        input_dim=input_dim,
         d_model=args.d_model,
-        output_size=6,
+        output_size=output_size,
     ).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
@@ -140,10 +185,15 @@ def main():
     print("Starting training...")
     best_accuracy = 0
     best_model_path = os.path.join(args.output_dir, "best_model.pt")
+    epoch_times = []
     
     for epoch in range(1, args.epochs + 1):
+        epoch_start = time.perf_counter()
         train(model, device, train_loader, optimizer, epoch, print_stats=False)
         val_accuracy = test(model, device, val_loader, print_stats=True)
+        epoch_elapsed = time.perf_counter() - epoch_start
+        epoch_times.append(epoch_elapsed)
+        print(f"Epoch {epoch} elapsed time: {epoch_elapsed:.2f} s")
         
         if val_accuracy > best_accuracy:
             best_accuracy = val_accuracy
@@ -159,12 +209,15 @@ def main():
 
     # Save training metadata
     metadata = {
-        "dataset": "UCI HAR",
-        "input_shape": [1, 10, 57],
-        "output_shape": [1, 6],
+        "dataset": args.dataset,
+        "dataset_display_name": dataset_name,
+        "input_shape": list(inferred_input_shape),
+        "input_dim": input_dim,
+        "output_size": output_size,
         "d_model": args.d_model,
         "bit_width": args.bit_width,
         "epochs_trained": args.epochs,
+        "epoch_times_sec": epoch_times,
         "best_val_accuracy": best_accuracy,
         "test_accuracy": test_accuracy,
     }

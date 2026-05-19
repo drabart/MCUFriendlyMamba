@@ -1,0 +1,17 @@
+Test set: Average loss: 0.0507, Accuracy: 1448/1470 (98.5%)
+
+Saved best model with accuracy: 0.9850
+
+Final test set evaluation:
+Test set: Average loss: 0.2403, Accuracy: 2774/2947 (94.1%)
+
+Quantized TFLite test accuracy: 94.13% (2774/2947)
+
+[RecordingMicroAllocator] Arena allocation total 49980 bytes
+[RecordingMicroAllocator] Arena allocation head 25184 bytes
+[RecordingMicroAllocator] Arena allocation tail 24796 bytes
+
+[RecordingMicroAllocator] Arena allocation total 77512 bytes
+[RecordingMicroAllocator] Arena allocation head 59776 bytes
+[RecordingMicroAllocator] Arena allocation tail 17736 bytes
+
