@@ -1,0 +1,36 @@
+\section{Introduction}
+
+Recent years have shown that machine learning has immense potential for solving tasks that have been challenging to accomplish using traditional algorithms. This led to creation of many general models, such as Large Language Models, as well as specialized ones for one task.
+
+This has led to wide spread adoption in use of those models. While many of them have adopted a centralized approach which utilized large data centres efficiently processing queries received from users all across the world, this approach also has it's limitations. Some of the main ones, are the need for the device to communicate over internet, which also adds latency, as well as privacy concerns.
+
+Edge AI tries to improve those limitations, by miniaturizing the models, which allows them to be run on consumer devices. A subset of it, TinyML, focuses on the smallest networks, which can be deployed on microcontrollers. This introduces various limitations. MCUs lack the processing power required to run large models, and even memory to be able to save their weights. A microcontroller usually provides us a single, or dual-core CPU with a frequency below 240 MHz, and 512 KB RAM. The latency of the model is also important, as many sources of data for this application come in streams, like audio, or video data, so it would preferably be able to process it in real time.
+
+The Mamba architecture \cite{mamba} has emerged as a compelling alternative to the dominant Transformer models. It comes with many different advantages, which include a smaller parameter footprint, hardware-aware design, and robust performance on long-context tasks. It achieves that by utilizing a State-Space Model (SSM) block, which allows for effective capturing of long-range dependencies, while it reduces quadratic complexity of attention mechanisms to linear scaling. SSM works by splitting the context and processing it while preserving a hidden state:
+
+$$
+\begin{aligned}
+  h_t &= \overline{A} h_{t-1} + \overline{B} x_t \\
+  y_t &= C h_t + D x_t
+\end{aligned}
+$$
+
+This operation then can be performed efficiently on a modern GPU by performing a parallel scan operation. Mamba however poses a few challenges, primarily due to difficulties in quantization \cite{xuMambaQuantQuantizingMamba2025, tegonFEMBAEdgePhysiologicallyAware2026a} and a lack of standardized tooling, e.g. easy export to ONNX \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}.
+
+The advantages, however, make Mamba a promising candidate for TinyML applications, a domain experiencing rapid growth. Transitioning Mamba from GPU-centric environments to resource-constrained MCUs requires addressing critical gaps. Recent literature highlights two primary hurdles: model quantization and extreme memory minimization. Quantizing SSMs is notoriously difficult due to their sensitivity to outliers, often necessitating advanced Post-Training Quantization (PTQ) \cite{xuMambaQuantQuantizingMamba2025} or Quantization-Aware Training (QAT) \cite{tegonFEMBAEdgePhysiologicallyAware2026a}. Furthermore, achieving the footprint reduction required for MCU deployment remains a significant challenge \cite{suwannaphongOptimisingTinyMLQuantization2025a}, with some efforts focusing on bridging the lack of native ONNX support to enable deployment on physical hardware \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}.
+
+Existing research, however, often overlooks the systematic optimization of memory and computational efficiency under strict MCU constraints. The original Mamba architecture was designed for GPU-accelerated training and inference, where parallel processing is standard. In contrast, most MCUs rely on single- or dual-core architectures with limited parallelism, necessitating a fundamental shift in design strategy. This work addresses these gaps by implementing hardware-aware optimizations specifically for Mamba on microcontrollers, comprising three key contributions: (1) replacing parallel scan operations with sequential scans, (2) quantizing model weights, and (3) applying low-rank factorization to the weight matrices.
+
+The section should:
+\begin{itemize}
+  \item Introduce embedded AI and TinyML.
+  \item Explain deployment constraints such as latency, memory, and computational limitations.
+  \item Briefly explain Mamba model potential.
+  \item Review the most relevant existing literature.
+  \item Identify the research gap.
+  \item Clearly state the research question.
+  \item Summarize the main contributions of the work.
+  \item Briefly explain the structure of the paper.
+\end{itemize}
+
+The introduction should remain accessible to readers with a general computer science background.

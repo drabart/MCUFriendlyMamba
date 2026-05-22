@@ -1,5 +1,53 @@
-@Manual{example,
-    title = {example referance},
-    author = {Firstname Lastname},
-    year = {1900},
+@article{anguitaPublicDomainDataset2013,
+  title        = {A {{Public Domain Dataset}} for {{Human Activity Recognition Using Smartphones}}},
+  author       = {Anguita, Davide and Ghio, Alessandro and Oneto, Luca and Parra, Xavier and Reyes-Ortiz, Jorge L},
+  date         = {2013},
+  journaltitle = {Computational Intelligence},
+  abstract     = {Human-centered computing is an emerging research field that aims to understand human behavior and integrate users and their social context with computer systems. One of the most recent, challenging and appealing applications in this framework consists in sensing human body motion using smartphones to gather context information about people actions. In this context, we describe in this work an Activity Recognition database, built from the recordings of 30 subjects doing Activities of Daily Living (ADL) while carrying a waist-mounted smartphone with embedded inertial sensors, which is released to public domain on a well-known on-line repository. Results, obtained on the dataset by exploiting a multiclass Support Vector Machine (SVM), are also acknowledged.},
+  langid       = {english},
+  file         = {/home/drabart/Zotero/storage/PZVVWLYC/Anguita et al. - 2013 - A Public Domain Dataset for Human Activity Recognition Using Smartphones.pdf}
+}
+
+@article{cassimonDesigningResourceconstrainedNeural2020,
+  title        = {Designing Resource-Constrained Neural Networks Using Neural Architecture Search Targeting Embedded Devices},
+  author       = {Cassimon, Thomas and Vanneste, Simon and Bosmans, Stig and Mercelis, Siegfried and Hellinckx, Peter},
+  date         = {2020-12},
+  journaltitle = {Internet of Things},
+  shortjournal = {Internet of Things},
+  volume       = {12},
+  pages        = {100234},
+  issn         = {25426605},
+  doi          = {10.1016/j.iot.2020.100234},
+  url          = {https://linkinghub.elsevier.com/retrieve/pii/S2542660520300676},
+  urldate      = {2026-05-15},
+  abstract     = {Recent advances in the field of Neural Architecture Search (NAS) have made it possible to develop state-of-the-art deep learning systems without requiring extensive human expertise and hyperparameter tuning. In most previous research, little concern was given to the resources required to run the generated systems. In this paper, we present an improvement on a recent NAS method, Efficient Neural Architecture Search (ENAS). We adapt ENAS to not only take into account the network’s performance, but also various constraints that would allow these networks to be ported to embedded devices. Our results show ENAS’ ability to comply with these added constraints. In order to show the efficacy of our system, we demonstrate it by designing a Recurrent Neural Network that predicts words as they are spoken, and meets the constraints set out for operation on an embedded device, along with a Convolutional Neural Network, capable of classifying 32x32 RGB images at a rate of 1 FPS on an embedded device.},
+  langid       = {english},
+  file         = {/home/drabart/Zotero/storage/PITGZ64J/Cassimon et al. - 2020 - Designing resource-constrained neural networks using neural architecture search targeting embedded d.pdf}
+}
+
+@article{trileEfficientNeuralNetworks2026,
+  title        = {Efficient {{Neural Networks}} for {{Tiny Machine Learning}}: {{A Comprehensive Review}}},
+  shorttitle   = {Efficient {{Neural Networks}} for {{Tiny Machine Learning}}},
+  author       = {Tri Lê, Minh and Wolinski, Pierre and Arbel, Julyan},
+  date         = {2026-08-31},
+  journaltitle = {ACM Transactions on Intelligent Systems and Technology},
+  shortjournal = {ACM Trans. Intell. Syst. Technol.},
+  volume       = {17},
+  number       = {4},
+  pages        = {1--41},
+  issn         = {2157-6904, 2157-6912},
+  doi          = {10.1145/3798276},
+  url          = {https://dl.acm.org/doi/10.1145/3798276},
+  urldate      = {2026-05-07},
+  abstract     = {The field of Tiny Machine Learning (TinyML) has gained significant attention due to its potential to enable intelligent applications on resource-constrained devices. This review provides an in-depth analysis of the advancements in efficient neural networks and the deployment of deep learning models on ultra-low-power microcontrollers (MCUs) for TinyML applications. It introduces neural networks and discusses their architectures and resource requirements. It explores MEMS-based applications on ultra-low-power MCUs, highlighting their potential for enabling TinyML on resource-constrained devices. The review focuses on efficient neural networks for TinyML. It covers techniques such as model compression, quantization, and low-rank factorization, which optimize neural network architectures for minimal resource utilization on MCUs. The article then delves into the deployment of deep learning models on ultra-low-power MCUs, addressing challenges such as limited computational capabilities and memory resources. Techniques such as model pruning, hardware acceleration, and algorithm-architecture co-design are discussed. Lastly, the review provides an overview of current limitations in the field, including the tradeoff between model complexity and resource constraints. Overall, this review article presents a comprehensive analysis of efficient neural networks and deployment strategies for TinyML on ultra-low-power MCUs. It identifies future research directions for unlocking the potential of TinyML applications on resource-constrained devices.},
+  langid       = {english},
+  file         = {/home/drabart/Zotero/storage/KDUG64BA/Tri Lê et al. - 2026 - Efficient Neural Networks for Tiny Machine Learning A Comprehensive Review.pdf}
+}
+
+@article{wangEfficientSpeechCommand,
+  title    = {Efficient {{Speech Command Recognition Leveraging Spiking Neural Network}} and {{Curriculum Learning-based Knowledge Distillation}}},
+  author   = {Wang, Jiaqi and Yu, Liutao and Huang, Liwei and Zhou, Chenlin and Zhang, Han and Song, Zhenxi and Ma, Zhengyu and Zhang, Zhiguo},
+  abstract = {The intrinsic dynamics and event-driven nature of spiking neural networks (SNNs) make them excel in processing temporal information by naturally utilizing embedded time sequences as time steps. Recent studies adopting this approach have demonstrated SNNs’ effectiveness in speech command recognition, achieving high performance by employing large time steps for long time sequences. However, the large time steps lead to increased deployment burdens for edge computing applications. Thus, it is important to balance high performance and low energy consumption when detecting temporal patterns in edge devices. Our solution comprises two key components. 1). We propose a high-performance fully spike-driven framework termed SpikeSCR, characterized by a global-local hybrid structure for efficient representation learning, which exhibits long-term learning capabilities with extended time steps. 2). To further fully embrace low energy consumption, we propose an effective knowledge distillation method based on curriculum learning (KDCL), where valuable representations learned from the easy curriculum are progressively transferred to the hard curriculum with minor loss, striking a trade-off between power efficiency and high performance. We evaluate our method on three benchmark datasets: the Spiking Heidelberg Dataset (SHD), the Spiking Speech Commands (SSC), and the Google Speech Commands (GSC) V2. Our experimental results demonstrate that SpikeSCR outperforms current state-of-the-art (SOTA) methods across these three datasets with the same time steps. Furthermore, by executing KDCL, we reduce the number of time steps by 60\% and decrease energy consumption by 54.8\% while maintaining comparable performance to recent SOTA results. Therefore, this work offers valuable insights for tackling temporal processing challenges with long time sequences in edge neuromorphic computing systems.},
+  langid   = {english},
+  file     = {/home/drabart/Zotero/storage/Y3VDASWE/Wang et al. - Efficient Speech Command Recognition Leveraging Spiking Neural Network and Curriculum Learning-based.pdf}
 }
