@@ -1,10 +1,13 @@
 \section{Related Work and Background}
+\label{sec:background}
 
 \subsection{TinyML}
 
+TinyML concerns the design, optimization, and deployment of machine learning models on highly resource-constrained embedded devices such as microcontrollers. Common techniques include compact architecture design, pruning, weight-sharing, and quantization (both post-training quantization and quantization-aware training). Toolchain and compiler optimizations (for example, model flattening, operator fusion, and memory planning) are also essential to meet MCU resource limits. Prior work has shown successful TinyML applications in audio, gesture recognition, and sensor analytics, but extreme footprint reduction and reliable real-time inference remain active challenges.
+
 \subsection{Mamba architecture}
 
-, which allows for effective capturing of long-range dependencies, while it reduces quadratic complexity of attention mechanisms to linear scaling. SSM works by splitting the context and processing it while preserving a hidden state:
+The Mamba architecture is based on State-Space Models (SSMs), which capture long-range dependencies while avoiding the quadratic complexity of attention. A discrete-time SSM updates a hidden state and emits outputs as:
 
 $$
 \begin{aligned}
@@ -13,12 +16,10 @@ $$
 \end{aligned}
 $$
 
-This operation then can be performed efficiently on a modern GPU by performing a parallel scan operation. Mamba however poses a few challenges, primarily due to difficulties in quantization \cite{xuMambaQuantQuantizingMamba2025, tegonFEMBAEdgePhysiologicallyAware2026a} and a lack of standardized tooling, e.g. easy export to ONNX \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}.
+On parallel hardware, this operation can be implemented efficiently using scan (parallel-prefix) algorithms. However, SSM-based architectures pose deployment challenges: SSM layers are sensitive to quantization \cite{xuMambaQuantQuantizingMamba2025, tegonFEMBAEdgePhysiologicallyAware2026a}, and there is limited standardized tooling and export paths (for example, ONNX) for Mamba-like models \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}. These issues complicate portability and optimization for constrained devices.
 
-The advantages, however, make Mamba a promising candidate for TinyML applications, a domain experiencing rapid growth. Transitioning Mamba from GPU-centric environments to resource-constrained MCUs requires addressing critical gaps. Recent literature highlights two primary hurdles: model quantization and extreme memory minimization. Quantizing SSMs is notoriously difficult due to their sensitivity to outliers, often necessitating advanced Post-Training Quantization (PTQ) \cite{xuMambaQuantQuantizingMamba2025} or Quantization-Aware Training (QAT) \cite{tegonFEMBAEdgePhysiologicallyAware2026a}. Furthermore, achieving the footprint reduction required for MCU deployment remains a significant challenge \cite{suwannaphongOptimisingTinyMLQuantization2025a}, with some efforts focusing on bridging the lack of native ONNX support to enable deployment on physical hardware \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}.
+Despite these challenges, Mamba's compact parameterization and strong long-context performance make it a promising candidate for TinyML.
 
-\subsection{Research Gap}
+\subsection{Research gap}
 
-This section should provide the theoretical and research background necessary to understand the paper.
-
-This section should support the motivation for the experimental framework introduced later in the paper.
+Two primary gaps motivate this work. First, robust quantization methods for SSM-based layers are still immature, making it difficult to deploy Mamba models in low-precision formats without significant accuracy loss. Second, the toolchains that produce MCU-ready binaries with minimal memory footprint are incomplete for SSM-style models. This paper targets both gaps by exploring architecture-level adjustments and MCU-focused optimization techniques.
