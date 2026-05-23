@@ -1,46 +1,40 @@
 #!/usr/bin/env python3
 """
-Strip tensor 'name' fields from a FlatBuffer TFLite JSON and rebuild binary.
+Replace SELECT opcode with SELECT_V2 in TFLite FlatBuffer models.
 
-Usage examples:
-  python python/strip_tensor_names.py --schema python/models/schema.fbs --tflite python/models/model_int8.tflite
-  python python/strip_tensor_names.py --json python/models/model_int8.json --schema python/models/schema.fbs
+This script converts a TFLite model to JSON format, replaces SELECT (opcode 64)
+with SELECT_V2 (opcode 123) in the operator_codes array, and rebuilds the binary.
+This transformation is required for tflite-micro compatibility.
 
-The script:
- - Optionally converts .tflite -> .json using `flatc -t --strict-json`
- - Loads the JSON, removes `name` keys from tensors in each subgraph
- - Saves the JSON (overwriting) and runs `flatc -b schema.fbs model_int8.json`
- - Compares sizes before/after and tries to load the rebuilt binary with a TFLite interpreter
+Usage:
+  python strip_names.py --schema schema.fbs --tflite model_int8.tflite
 """
 import argparse
 import json
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 
-def run(cmd, cwd=None, silent=False):
-    if not silent:
-        print("$", " ".join(cmd))
-    subprocess.check_call(cmd, cwd=cwd, stdout=subprocess.DEVNULL if silent else None, stderr=subprocess.DEVNULL if silent else None)
+def run(cmd, cwd=None):
+    subprocess.check_call(cmd, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def to_json(schema, tflite_path, out_dir=None):
-    tflite_path = Path(tflite_path).resolve()  # Convert to absolute path
+    tflite_path = Path(tflite_path).resolve()
     out_dir = Path(out_dir or tflite_path.parent)
-    schema = Path(schema).resolve()  # Convert to absolute path
+    schema = Path(schema).resolve()
     cmd = ["flatc", "-t", "--strict-json", "-o", str(out_dir), str(schema), "--", str(tflite_path)]
-    run(cmd, cwd=out_dir, silent=True)
+    run(cmd, cwd=out_dir)
     return out_dir / (tflite_path.stem + ".json")
 
 
 def rebuild_binary(schema, json_path, out_dir=None):
-    json_path = Path(json_path).resolve()  # Convert to absolute path
+    json_path = Path(json_path).resolve()
     out_dir = Path(out_dir or json_path.parent)
-    schema = Path(schema).resolve()  # Convert to absolute path
+    schema = Path(schema).resolve()
     cmd = ["flatc", "-b", str(schema), str(json_path)]
-    run(cmd, cwd=out_dir, silent=True)
+    run(cmd, cwd=out_dir)
 
     candidates = [
         out_dir / (json_path.stem + ".bin"),
@@ -57,25 +51,26 @@ def rebuild_binary(schema, json_path, out_dir=None):
     raise FileNotFoundError("Could not find rebuilt binary produced by flatc")
 
 
-def strip_tensor_names(json_path):
+def replace_select_builtin_code(json_path):
+    """Replace SELECT builtin_code with SELECT_V2 in operator_codes."""
     json_path = Path(json_path)
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     modified = False
-    subgraphs = data.get("subgraphs")
-    if isinstance(subgraphs, list):
-        for sg in subgraphs:
-            tensors = sg.get("tensors")
-            if isinstance(tensors, list):
-                for t in tensors:
-                    if isinstance(t, dict) and "name" in t:
-                        del t["name"]
-                        modified = True
+    operator_codes = data.get("operator_codes")
+    if isinstance(operator_codes, list):
+        for op_code in operator_codes:
+            if isinstance(op_code, dict) and op_code.get("builtin_code") == "SELECT":
+                op_code["builtin_code"] = "SELECT_V2"
+                if "deprecated_builtin_code" in op_code:
+                    op_code["deprecated_builtin_code"] = 123
+                modified = True
 
     if modified:
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+    return modified
 
 
 def size_readable(p):
@@ -90,47 +85,30 @@ def size_readable(p):
     return f"{b:.1f}GB"
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Replace SELECT with SELECT_V2 in TFLite models")
     parser.add_argument("--schema", type=str, default="schema.fbs", help="FlatBuffers schema file")
-    parser.add_argument("--tflite", type=str, help="Input .tflite file to convert to JSON")
-    parser.add_argument("--json", type=str, help="Existing JSON file to load and modify (if provided, skip tflite->json)")
-    parser.add_argument("--out-dir", type=str, default=None, help="Output directory for conversion steps")
+    parser.add_argument("--tflite", type=str, required=True, help="Input .tflite file")
+    parser.add_argument("--out-dir", type=str, default=None, help="Output directory")
     args = parser.parse_args()
 
     schema = Path(args.schema)
     if not schema.exists():
-        print("Schema file not found:", schema)
-        sys.exit(2)
+        print(f"Error: Schema file not found: {schema}", file=sys.stderr)
+        sys.exit(1)
 
-    if args.json:
-        json_path = Path(args.json)
-        if not json_path.exists():
-            print("JSON file not found:", json_path)
-            sys.exit(2)
-    elif args.tflite:
-        tflite_path = Path(args.tflite)
-        if not tflite_path.exists():
-            print("TFLite file not found:", tflite_path)
-            sys.exit(2)
-        # Capture original size before converting to JSON
-        orig_size = tflite_path.stat().st_size
-        json_path = to_json(schema, tflite_path, out_dir=args.out_dir)
+    tflite_path = Path(args.tflite)
+    if not tflite_path.exists():
+        print(f"Error: TFLite file not found: {tflite_path}", file=sys.stderr)
+        sys.exit(1)
+
+    json_path = to_json(schema, tflite_path, out_dir=args.out_dir)
+    
+    if replace_select_builtin_code(json_path):
+        print(f"✓ SELECT -> SELECT_V2 replaced")
     else:
-        print("Either --tflite or --json must be provided")
-        sys.exit(2)
+        print("  (no SELECT operations found)")
 
-    orig_bin = None
-    if args.tflite:
-        orig_bin = Path(args.tflite)
-
-    strip_tensor_names(json_path)
-
-    rebuilt = rebuild_binary(schema, json_path, out_dir=args.out_dir)
-
-    if orig_bin and rebuilt.exists():
-        print(f"Stripped {orig_bin.name}:")
-        print(f"  before: {size_readable(orig_size)}")
-        print(f"  after:  {size_readable(rebuilt)}")
+    rebuild_binary(schema, json_path, out_dir=args.out_dir)
 
 if __name__ == "__main__":
     main()
