@@ -72,18 +72,6 @@ def replace_select_builtin_code(json_path):
             json.dump(data, f, indent=2, ensure_ascii=False)
     return modified
 
-
-def size_readable(p):
-    if isinstance(p, int):
-        b = p
-    else:
-        b = p.stat().st_size
-    for unit in ["B", "KB", "MB"]:
-        if b < 1024.0:
-            return f"{b:.1f}{unit}"
-        b /= 1024.0
-    return f"{b:.1f}GB"
-
 def main():
     parser = argparse.ArgumentParser(description="Replace SELECT with SELECT_V2 in TFLite models")
     parser.add_argument("--schema", type=str, default="schema.fbs", help="FlatBuffers schema file")

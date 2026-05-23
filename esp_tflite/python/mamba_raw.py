@@ -27,8 +27,8 @@ class SelectiveScanSequential(nn.Module):
 
         dt = self.x_proj_dt(state)
         dt = self.dt_proj(dt)
-        dt = F.softplus(dt)
-        # dt = F.relu(dt)
+        # dt = F.softplus(dt)
+        dt = F.relu(dt)
 
         A = -torch.exp(self.A_log)
 
@@ -117,15 +117,15 @@ class MambaBlock(nn.Module):
         state = state.transpose(1, 2)
         state = self.conv1d(state)[:, :, :l]
         
-        state = F.silu(state)
-        # state = F.relu(state)
+        # state = F.silu(state)
+        state = F.relu(state)
         
         state = state.transpose(1, 2)
 
         y = self.ssm(state)
 
-        gate = F.silu(gate)
-        # gate = F.relu(gate)
+        # gate = F.silu(gate)
+        gate = F.relu(gate)
         y = y * gate
 
         return self.out_proj(y)

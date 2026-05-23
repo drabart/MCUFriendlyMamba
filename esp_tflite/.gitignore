@@ -7,4 +7,4 @@ sdkconfig
 sdkconfig.old
 build/
 managed_components/
-python/__pycache__/
+**__pycache__**

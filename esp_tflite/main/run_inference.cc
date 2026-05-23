@@ -99,7 +99,7 @@ void setup() {
 
     resolver.AddConcatenation();
 
-    tflite::CustomProfiler<512, 20> profiler;
+    tflite::CustomProfiler<512, 20> profiler = tflite::CustomProfiler<512, 20>();
 
     static tflite::RecordingMicroInterpreter interpreter(
         model, resolver, tensor_arena, kTensorArenaSize, nullptr, &profiler);
@@ -213,7 +213,7 @@ void setup() {
 
     // Check the stack of the current running task
     UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
-    printf("\nStack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark * 4);
+    printf("\nStack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark);
 
     printf("\n=== Inference test completed ===\n");
 }

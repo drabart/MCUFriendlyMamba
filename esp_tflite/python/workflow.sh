@@ -153,7 +153,7 @@ mkdir -p "$OUTPUT_DIR"
 # Step 1: Train PyTorch model
 if [[ "$RUN_TRAIN" -eq 1 ]]; then
     print_step "Step 1: Training PyTorch Linear Model on ${DATASET^^} Dataset"
-    python train_linear_har.py \
+    python train_linear.py \
         --dataset "$DATASET" \
         --dataset-dir "$DATASET_DIR" \
         --batch-size 32 \
