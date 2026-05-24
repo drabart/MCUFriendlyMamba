@@ -209,7 +209,7 @@ void run_inference() {
     // profiler.LogPrecise();
     
     printf("\n--- Grouped Profiling Results ---\n");
-    profiler.LogGrouped();
+    profiler.LogGroupedTotal();
 
     // Check the stack of the current running task
     UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);

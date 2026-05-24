@@ -9,5 +9,8 @@ idf_component_register(
         model_pre_ssm_model_data.cc
         model_step_ssm_model_data.cc
         model_post_ssm_model_data.cc
+        model_pre_ssm_int8_model_data.cc
+        model_step_ssm_int8_model_data.cc
+        model_post_ssm_int8_model_data.cc
     INCLUDE_DIRS "."
 )

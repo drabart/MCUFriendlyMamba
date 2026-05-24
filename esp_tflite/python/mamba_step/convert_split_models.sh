@@ -43,31 +43,70 @@ for model_name in "${models[@]}"; do
             exit 1
         fi
 
-        # Run the same transform pipeline used by workflow.sh.
-        "$PYTHON_BIN" "${SCRIPT_DIR}/../strip_names.py" --schema "$SCHEMA_PATH" --tflite "$input_file" || {
-            echo "  ✗ Failed to replace SELECT in model"
-            exit 1
-        }
-
         # Run tflm transforms; skip runtime equivalence testing to avoid
         # crashes in the python runtime during automated checks.
-        (cd "$TFLITE_MICRO" && bazel run tensorflow/lite/micro/tools:tflm_model_transforms -- --input_model_path="$input_file" --output_model_path="$transformed_file" --test_transformed_model=False) || {
+        (cd "$TFLITE_MICRO" && bazel run tensorflow/lite/micro/tools:tflm_model_transforms -- --input_model_path="$input_file" --output_model_path="$transformed_file") || {
             echo "  ✗ Failed to run TFLM transforms"
             exit 1
         }
 
-        # Generate header file
-        "$PYTHON_BIN" "$GENERATE_SCRIPT" "$output_h" "$transformed_file"
+        # Rename the optimized file back to the original input filename
+        # Backup the original input model if it exists so we can restore it later
+        backup=""
+        if [ -f "$transformed_file" ]; then
+            # find a non-colliding backup name
+            backup="${input_file}.bak"
+            idx=0
+            while [ -e "$backup" ]; do
+                backup="${input_file}.bak.$idx"
+                idx=$((idx+1))
+            done
+            if [ -f "$input_file" ]; then
+                mv "$input_file" "$backup" || {
+                    echo "  ✗ Failed to backup original model: $input_file -> $backup"
+                    exit 1
+                }
+            fi
+            mv "$transformed_file" "$input_file" || {
+                echo "  ✗ Failed to rename optimized model back to original name"
+                # try to restore backup if present
+                if [ -n "$backup" ] && [ -f "$backup" ]; then
+                    mv "$backup" "$input_file" || true
+                fi
+                exit 1
+            }
+        else
+            echo "  ✗ Transformed file not found: $transformed_file"
+            exit 1
+        fi
+
+        # Generate header file (use the original filename which now points to the optimized model)
+        "$PYTHON_BIN" "$GENERATE_SCRIPT" "$output_h" "$input_file"
         if [ $? -ne 0 ]; then
             echo "  ✗ Failed to generate header"
+            # restore original model if we backed it up
+            if [ -n "$backup" ] && [ -f "$backup" ]; then
+                mv "$backup" "$input_file" || true
+            fi
             exit 1
         fi
 
         # Generate implementation file
-        "$PYTHON_BIN" "$GENERATE_SCRIPT" "$output_cc" "$transformed_file"
+        "$PYTHON_BIN" "$GENERATE_SCRIPT" "$output_cc" "$input_file"
         if [ $? -ne 0 ]; then
             echo "  ✗ Failed to generate implementation"
+            if [ -n "$backup" ] && [ -f "$backup" ]; then
+                mv "$backup" "$input_file" || true
+            fi
             exit 1
+        fi
+
+        # Restore the original model file if we created a backup
+        if [ -n "$backup" ] && [ -f "$backup" ]; then
+            mv "$backup" "$input_file" || {
+                echo "  ✗ Failed to restore original model from backup: $backup"
+                exit 1
+            }
         fi
 
         echo "  ✓ Created ${output_h##*/} and ${output_cc##*/}"

@@ -68,7 +68,30 @@ class CustomProfiler : public MicroProfilerInterface {
         #endif
         }
 
-        void LogGrouped() const {
+        void LogGroupedSinceLap() const {
+        #if !defined(TF_LITE_STRIP_ERROR_STRINGS)
+            int total_ticks = 0;
+
+            for (int i = lap_event_start_; i < num_events_; ++i) {
+                total_ticks += events_[i].end_ticks - events_[i].start_ticks;
+            }
+            MicroPrintf("Total time since last lap: %u us.\n", total_ticks);
+
+            for (int i = 0; i < num_unique_tags_; ++i) {
+                uint32_t ticks = 0;
+                for (int j = lap_event_start_; j < num_events_; ++j) {
+                    if (strcmp(total_ticks_per_tag_[i].tag, events_[j].tag) == 0) {
+                        ticks += events_[j].end_ticks - events_[j].start_ticks;
+                    }
+                }
+                if (ticks > 0) {
+                    MicroPrintf("%s took %u us.", total_ticks_per_tag_[i].tag, ticks);
+                }
+            }
+        #endif
+        }
+
+        void LogGroupedTotal() const {
         #if !defined(TF_LITE_STRIP_ERROR_STRINGS)
             int total_ticks = 0;
 
@@ -84,9 +107,12 @@ class CustomProfiler : public MicroProfilerInterface {
         #endif
         }
 
+        void AdvanceLap() { lap_event_start_ = num_events_; }
+
         void ClearEvents() {
             num_events_ = 0;
             num_unique_tags_ = 0;
+            lap_event_start_ = 0;
         }
 
     private:
@@ -104,6 +130,7 @@ class CustomProfiler : public MicroProfilerInterface {
         };
         TicksPerTag total_ticks_per_tag_[kMaxUniqueTags] = {};
         int num_unique_tags_ = 0;
+        int lap_event_start_ = 0;
 
         TF_LITE_REMOVE_VIRTUAL_DELETE
 };
