@@ -13,7 +13,7 @@
 // Define to choose between quantized (int8) and float models
 #define USE_QUANTIZED_MODEL 1
 
-#include "run_inference.h"
+#include "full_model_inference.h"
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/recording_micro_interpreter.h"
@@ -53,7 +53,7 @@ const char* ACTIVITY_LABELS[] = {
     "LAYING"
 };
 
-void setup() {
+void run_inference() {
     printf("\n\n=== ESP32 HAR Inference Test ===\n");
     
     // Setup TensorFlow Lite
@@ -216,8 +216,4 @@ void setup() {
     printf("\nStack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark);
 
     printf("\n=== Inference test completed ===\n");
-}
-
-void loop() {
-    
 }

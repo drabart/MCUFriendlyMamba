@@ -1,16 +1,14 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include "esp_random.h"
 
-#include "run_inference.h"
+// #include "full_model_inference.h"
+#include "split_model_inference.h"
 
 extern "C" {
 
 void app_main(void) {
-  setup();
-  while (true) {
-    loop();
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
+    run_inference();
 }
 
 }

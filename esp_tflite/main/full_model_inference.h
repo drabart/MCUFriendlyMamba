@@ -5,8 +5,7 @@
 extern "C" {
 #endif
 
-void setup();
-void loop();
+void run_inference();
 
 #ifdef __cplusplus
 }

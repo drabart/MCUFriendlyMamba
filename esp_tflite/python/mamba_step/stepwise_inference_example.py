@@ -44,7 +44,7 @@ class PreSSMModule(nn.Module):
 
 
 class StepSSMModule(nn.Module):
-    """Single-timestep SSM with persistent hidden state."""
+    """Single-timestep SSM: takes hidden state as input, returns output and updated state."""
     def __init__(self, d_inner=128, d_state=16, dt_size=8):
         super().__init__()
         self.d_inner = d_inner
@@ -56,23 +56,25 @@ class StepSSMModule(nn.Module):
         self.dt_proj = nn.Linear(dt_size, d_inner, bias=False)
         
         self.A_log = nn.Parameter(torch.randn(d_inner, d_state))
+        self.A  = (-torch.exp(self.A_log.data)).unsqueeze(0)
         self.D = nn.Parameter(torch.ones(d_inner))
+    
+    def forward(self, x_t, hidden_state):
+        """Process single timestep.
         
-        self.hidden_state = None
-    
-    def reset_state(self, batch_size, device, dtype):
-        self.hidden_state = torch.zeros(batch_size, self.d_inner, self.d_state,
-                                        device=device, dtype=dtype)
-    
-    def forward(self, x_t):
-        """Process single timestep (B, d_inner)."""
+        Args:
+            x_t: (B, d_inner) input for this timestep
+            hidden_state: (B, d_inner, d_state) current hidden state
+        
+        Returns:
+            y_t: (B, d_inner) output
+            hidden_state_new: (B, d_inner, d_state) updated hidden state
+        """
         B = self.x_proj_B(x_t)  # (B, d_state)
         C = self.x_proj_C(x_t)  # (B, d_state)
         dt = self.x_proj_dt(x_t)
         dt = self.dt_proj(dt)
         dt = F.relu(dt)
-        
-        A = -torch.exp(self.A_log)
         
         # Reshape for broadcasting
         x_expanded = x_t.unsqueeze(-1)  # (B, d_inner, 1)
@@ -80,15 +82,15 @@ class StepSSMModule(nn.Module):
         B_expanded = B.unsqueeze(1)  # (B, 1, d_state)
         C_expanded = C.unsqueeze(1)  # (B, 1, d_state)
         
-        A_bar = torch.exp(dt_expanded * A.unsqueeze(0))  # (B, d_inner, d_state)
+        A_bar = torch.exp(dt_expanded * self.A)  # (B, d_inner, d_state)
         B_bar = dt_expanded * B_expanded  # (B, d_inner, d_state)
         
-        self.hidden_state = A_bar * self.hidden_state + B_bar * x_expanded
+        hidden_state_new = A_bar * hidden_state + B_bar * x_expanded
         
-        y_t = torch.sum(self.hidden_state * C_expanded, dim=-1)  # (B, d_inner)
+        y_t = torch.sum(hidden_state_new * C_expanded, dim=-1)  # (B, d_inner)
         y_t = y_t + self.D.view(1, -1) * x_t
         
-        return y_t
+        return y_t, hidden_state_new
 
 
 class PostSSMModule(nn.Module):
@@ -111,8 +113,6 @@ class PostSSMModule(nn.Module):
 
 def load_trained_weights(pre_ssm, step_ssm, post_ssm, model_path):
     """Extract weights from trained HARMamba model into 3 modules."""
-    print(f"Loading weights from {model_path}...")
-    
     state_dict = torch.load(model_path, map_location='cpu', weights_only=True)
     
     # Pre-SSM weights
@@ -129,11 +129,12 @@ def load_trained_weights(pre_ssm, step_ssm, post_ssm, model_path):
     step_ssm.A_log.data = state_dict['mamba.ssm.A_log']
     step_ssm.D.data = state_dict['mamba.ssm.D']
     
+    # Update pre-computed A buffer after loading A_log
+    step_ssm.A.copy_(-torch.exp(step_ssm.A_log.data))
+    
     # Post-SSM weights
     post_ssm.out_proj.weight.data = state_dict['mamba.out_proj.weight']
     post_ssm.classifier.weight.data = state_dict['classifier.weight']
-    
-    print("✓ Weights loaded\n")
 
 
 def inference_stepwise(pre_ssm, step_ssm, post_ssm, x):
@@ -144,11 +145,12 @@ def inference_stepwise(pre_ssm, step_ssm, post_ssm, x):
         
         # Step 2: Step-by-step SSM
         batch_size, seq_len = x.shape[0], x.shape[1]
-        step_ssm.reset_state(batch_size, x.device, x.dtype)
+        hidden_state = torch.zeros(batch_size, step_ssm.d_inner, step_ssm.d_state,
+                                   device=x.device, dtype=x.dtype)
         
         ys = []
         for t in range(seq_len):
-            y_t = step_ssm(state[:, t, :])
+            y_t, hidden_state = step_ssm(state[:, t, :], hidden_state)
             ys.append(y_t)
         
         y_ssm = torch.stack(ys, dim=1)  # (B, T, d_inner)
@@ -160,10 +162,6 @@ def inference_stepwise(pre_ssm, step_ssm, post_ssm, x):
 
 
 def main():
-    print("=" * 80)
-    print("STEPWISE SSM INFERENCE - FULL TEST SET EVALUATION")
-    print("=" * 80 + "\n")
-    
     # Setup paths
     script_dir = Path(__file__).parent.parent
     model_path = script_dir / "models" / "best_model.pt"
@@ -183,11 +181,7 @@ def main():
     
     # Load HAR test data (one level above esp_tflite)
     data_dir = Path(__file__).parent.parent.parent.parent / "UCI HAR Dataset"
-    print(f"Loading HAR data from {data_dir}...")
     _, _, test_ds = load_har_data(str(data_dir))
-    
-    print(f"✓ Data loaded")
-    print(f"  Test set size: {len(test_ds)}\n")
     
     # Load reference model
     har_model = HARMamba(input_dim=57, d_model=64, d_state=16, d_conv=4, 
@@ -207,7 +201,7 @@ def main():
     confusion_ref = torch.zeros(num_classes, num_classes, dtype=torch.long)
     confusion_step = torch.zeros(num_classes, num_classes, dtype=torch.long)
     
-    print("Evaluating on test set...")
+    print(f"Evaluating {len(test_ds)} samples...")
     with torch.no_grad():
         for idx, (x, y) in enumerate(test_ds):
             x = x.unsqueeze(0)  # (1, T, features)
@@ -236,6 +230,9 @@ def main():
             diff = (logits_ref - logits_step).abs().max().item()
             total_diff += diff
             max_diff = max(max_diff, diff)
+            
+            if (idx + 1) % 500 == 0:
+                print(f"  {idx + 1}/{len(test_ds)}")
     
     # Calculate metrics
     total = len(test_ds)
@@ -243,30 +240,10 @@ def main():
     step_acc = step_correct / total
     mean_diff = total_diff / total
     
-    print(f"\n{'=' * 80}")
-    print("TEST SET RESULTS")
-    print(f"{'=' * 80}")
-    print(f"Total samples: {total}")
-    print(f"\nReference Model Accuracy: {ref_acc:.4f} ({ref_correct}/{total})")
-    print(f"Stepwise Model Accuracy:  {step_acc:.4f} ({step_correct}/{total})")
-    print(f"Both Correct:             {both_correct}/{total}\n")
-    
-    print(f"Numerical Differences:")
-    print(f"  Mean difference: {mean_diff:.8f}")
-    print(f"  Max difference:  {max_diff:.8f}\n")
-    
-    # Per-class accuracy
-    print(f"Per-class Accuracy (Reference Model):")
-    for c in range(num_classes):
-        acc = confusion_ref[c, c].item() / confusion_ref[c].sum().item() if confusion_ref[c].sum() > 0 else 0
-        print(f"  Class {c}: {acc:.4f}")
-    
-    print(f"\nPer-class Accuracy (Stepwise Model):")
-    for c in range(num_classes):
-        acc = confusion_step[c, c].item() / confusion_step[c].sum().item() if confusion_step[c].sum() > 0 else 0
-        print(f"  Class {c}: {acc:.4f}")
-    
-    print(f"\n{'=' * 80}")
+    print(f"\nResults: {total} samples")
+    print(f"Reference Accuracy:  {ref_acc:.4f} ({ref_correct}/{total})")
+    print(f"Stepwise Accuracy:   {step_acc:.4f} ({step_correct}/{total})")
+    print(f"Max output diff:     {max_diff:.8f}")
 
 
 if __name__ == "__main__":
