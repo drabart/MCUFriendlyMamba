@@ -114,6 +114,7 @@ idf_component_register(
                          "third_party/flatbuffers/include"
                          "third_party/ruy"
                          "third_party/kissfft"
+                         "custom/include"
             REQUIRES ${pub_req}
             PRIV_REQUIRES ${priv_req})
 
