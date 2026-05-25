@@ -13,7 +13,7 @@
 // Define to choose between quantized (int8) and float models
 #define USE_QUANTIZED_MODEL 1
 
-#include "full_model_inference.h"
+#include "full_model_har_inference.h"
 
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/recording_micro_interpreter.h"
@@ -24,9 +24,9 @@
 
 // Include generated model data
 #if USE_QUANTIZED_MODEL
-#include "model_int8_model_data.h"
+#include "model_full_int8_har_model_data.h"
 #else
-#include "model_float_model_data.h"
+#include "model_full_har_model_data.h"
 #endif
 
 #include "esp_timer.h"
@@ -61,9 +61,9 @@ void run_inference() {
     
     // Load model
 #if USE_QUANTIZED_MODEL
-    const tflite::Model* model = tflite::GetModel(g_model_int8_model_data);
+    const tflite::Model* model = tflite::GetModel(g_model_full_int8_har_model_data);
 #else
-    const tflite::Model* model = tflite::GetModel(g_model_float_model_data);
+    const tflite::Model* model = tflite::GetModel(g_model_full_har_model_data);
 #endif
     if (model->version() != TFLITE_SCHEMA_VERSION) {
         printf("ERROR: Model version mismatch!\n");
