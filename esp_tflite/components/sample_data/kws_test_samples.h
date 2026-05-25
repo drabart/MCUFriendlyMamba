@@ -45,7 +45,6 @@ const char* kws_classes[] = {
 // KWS test samples - 50 random samples
 // Each sample: 51 time frames × 40 MFCC features = 2040 float values
 // Total: 50 × 2040 = 102000 float values
-
 const float kws_test_data[50][2040] = {
     {-465.583313f, 2.450788f, 2.414757f, 2.355423f, 2.273414f, 2.170013f, 2.046520f, 1.904778f, 1.746532f, 1.574035f, 
      1.389774f, 1.195768f, 0.995107f, 0.790125f, 0.583316f, 0.377637f, 0.175362f, -0.021063f, -0.209275f, -0.386807f, 
