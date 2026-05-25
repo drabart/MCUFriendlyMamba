@@ -1,0 +1,113 @@
+ets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0040,len:6596
+load:0x40078000,len:16752
+ho 0 tail 12 room 4
+load:0x40080400,len:4348
+--- 0x40080400: _invalid_pc_placeholder at /home/drabart/.espressif/v6.0.1/esp-idf/components/xtensa/xtensa_vectors.S:2227entry 0x40080664
+[0;32mI (28) boot: ESP-IDF v6.0.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time May 25 2026 16:18:52[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (30) boot: chip revision: v1.0[0m
+[0;32mI (33) qio_mode: Enabling default flash chip QIO[0m
+[0;32mI (37) boot.esp32: SPI Speed      : 80MHz[0m
+[0;32mI (41) boot.esp32: SPI Mode       : QIO[0m
+[0;32mI (44) boot.esp32: SPI Flash Size : 4MB[0m
+[0;32mI (48) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (61) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (68) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (74) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (81) boot: End of partition table[0m
+[0;32mI (84) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=1e9d0h (125392) map[0m
+[0;32mI (125) esp_image: segment 1: paddr=0002e9f8 vaddr=3ffb0000 size=01620h (  5664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=00030020 vaddr=400d0020 size=2d050h (184400) map[0m
+[0;32mI (179) esp_image: segment 3: paddr=0005d078 vaddr=3ffb1620 size=0127ch (  4732) load[0m
+[0;32mI (181) esp_image: segment 4: paddr=0005e2fc vaddr=40080000 size=09fe0h ( 40928) load[0m
+[0;32mI (196) esp_image: segment 5: paddr=000682e4 vaddr=50000000 size=00028h (    40) load[0m
+[0;32mI (202) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (202) boot: Disabling RNG early entropy source...[0m
+[0;32mI (215) cpu_start: Multicore app[0m
+[0;32mI (223) cpu_start: GPIO 3 and 1 are used as console UART I/O pins[0m
+[0;32mI (223) cpu_start: Pro cpu start user code[0m
+[0;32mI (223) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (225) app_init: Application information:[0m
+[0;32mI (229) app_init: Project name:     MCU_Mamba[0m
+[0;32mI (233) app_init: App version:      ceaa5bf-dirty[0m
+[0;32mI (237) app_init: Compile time:     May 25 2026 21:13:51[0m
+[0;32mI (242) app_init: ELF file SHA256:  e7f639d60...[0m
+[0;32mI (246) app_init: ESP-IDF:          v6.0.1[0m
+[0;32mI (250) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (254) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (258) efuse_init: Chip rev:         v1.0[0m
+[0;32mI (262) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (268) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (273) heap_init: At 3FFD3FC0 len 0000C040 (48 KiB): DRAM[0m
+[0;32mI (278) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (284) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (289) heap_init: At 40089FE0 len 00016020 (88 KiB): IRAM[0m
+[0;32mI (295) spi_flash: detected chip: generic[0m
+[0;32mI (298) spi_flash: flash io: qio[0m
+[0;32mI (302) main_task: Started on CPU0[0m
+[0;32mI (312) main_task: Calling app_main()[0m
+
+
+=== ESP32 HAR Inference Test ===
+Model loaded successfully
+Tensors allocated successfully
+Model Type: INT8 Quantized
+Input shape: 1 10 57 
+Input dtype: INT8, scale: 0.007765, zero_point: 1
+Output shape: 1 6 
+Output dtype: INT8, scale: 0.166843, zero_point: -43
+
+--- Running inference with dummy data ---
+Inference completed in 
+201530 microseconds
+
+--- Inference Results ---
+WALKING: -43
+WALKING_UPSTAIRS: -43
+WALKING_DOWNSTAIRS: -43
+SITTING: -43
+STANDING: -43
+LAYING: -43
+
+Predicted Activity: WALKING
+[RecordingMicroAllocator] Arena allocation total 48188 bytes
+[RecordingMicroAllocator] Arena allocation head 24544 bytes
+[RecordingMicroAllocator] Arena allocation tail 23644 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 3180 bytes with alignment overhead (requested 3180 bytes for 265 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 80 bytes with alignment overhead (requested 80 bytes for 2 tensors)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor quantization data' used 40 bytes with alignment overhead (requested 40 bytes for 4 allocations)
+[RecordingMicroAllocator] 'Persistent buffer data' used 10680 bytes with alignment overhead (requested 9888 bytes for 136 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 7040 bytes with alignment overhead (requested 7040 bytes for 220 NodeAndRegistration structs)
+
+--- Grouped Profiling Results ---
+Total time for all events: 200702 us.
+
+FULLY_CONNECTED took 31269 us.
+RESHAPE took 374 us.
+TRANSPOSE took 369 us.
+PAD took 286 us.
+DEPTHWISE_CONV_2D took 1426 us.
+SLICE took 3724 us.
+RELU took 808 us.
+MUL took 72397 us.
+SUM took 22236 us.
+DEQUANTIZE took 14387 us.
+EXP took 14325 us.
+QUANTIZE took 12916 us.
+ADD took 26026 us.
+CONCATENATION took 97 us.
+GATHER_ND took 62 us.
+
+Stack High Water Mark: 360 bytes remaining
+
+=== Inference test completed ===
+[0;32mI (682) main_task: Returned from app_main()[0m

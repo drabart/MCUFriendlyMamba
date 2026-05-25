@@ -297,9 +297,6 @@ def _get_postSsm_calibration_data(pre_ssm_interpreter, step_ssm_interpreter,
     step_input_details = step_ssm_interpreter.get_input_details()
     step_output_details = step_ssm_interpreter.get_output_details()
     
-    # Debug: Print output details
-    print(f"  StepSSM outputs: {[(d['name'], d['shape']) for d in step_output_details]}")
-    
     # Find PreSSM state and gate outputs
     pre_state_idx = None
     pre_gate_idx = None

@@ -1,0 +1,150 @@
+ets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0040,len:6596
+load:0x40078000,len:16752
+ho 0 tail 12 room 4
+load:0x40080400,len:4348
+--- 0x40080400: _invalid_pc_placeholder at /home/drabart/.espressif/v6.0.1/esp-idf/components/xtensa/xtensa_vectors.S:2227entry 0x40080664
+[0;32mI (28) boot: ESP-IDF v6.0.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time May 25 2026 16:18:52[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (30) boot: chip revision: v1.0[0m
+[0;32mI (33) qio_mode: Enabling default flash chip QIO[0m
+[0;32mI (37) boot.esp32: SPI Speed      : 80MHz[0m
+[0;32mI (41) boot.esp32: SPI Mode       : QIO[0m
+[0;32mI (44) boot.esp32: SPI Flash Size : 4MB[0m
+[0;32mI (48) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (61) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (68) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (74) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (81) boot: End of partition table[0m
+[0;32mI (84) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=4ffach (327596) map[0m
+[0;32mI (180) esp_image: segment 1: paddr=0005ffd4 vaddr=3ffb0000 size=00044h (    68) load[0m
+[0;32mI (180) esp_image: segment 2: paddr=00060020 vaddr=400d0020 size=2d324h (185124) map[0m
+[0;32mI (234) esp_image: segment 3: paddr=0008d34c vaddr=3ffb0044 size=02838h ( 10296) load[0m
+[0;32mI (237) esp_image: segment 4: paddr=0008fb8c vaddr=40080000 size=09fe0h ( 40928) load[0m
+[0;32mI (251) esp_image: segment 5: paddr=00099b74 vaddr=50000000 size=00028h (    40) load[0m
+[0;32mI (256) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (257) boot: Disabling RNG early entropy source...[0m
+[0;32mI (269) cpu_start: Multicore app[0m
+[0;32mI (277) cpu_start: GPIO 3 and 1 are used as console UART I/O pins[0m
+[0;32mI (277) cpu_start: Pro cpu start user code[0m
+[0;32mI (277) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (279) app_init: Application information:[0m
+[0;32mI (283) app_init: Project name:     MCU_Mamba[0m
+[0;32mI (287) app_init: App version:      ceaa5bf-dirty[0m
+[0;32mI (292) app_init: Compile time:     May 25 2026 21:13:51[0m
+[0;32mI (297) app_init: ELF file SHA256:  d88334d8c...[0m
+[0;32mI (301) app_init: ESP-IDF:          v6.0.1[0m
+[0;32mI (305) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (309) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (313) efuse_init: Chip rev:         v1.0[0m
+[0;32mI (317) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (323) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (328) heap_init: At 3FFC99C0 len 00016640 (89 KiB): DRAM[0m
+[0;32mI (333) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (338) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (344) heap_init: At 40089FE0 len 00016020 (88 KiB): IRAM[0m
+[0;32mI (350) spi_flash: detected chip: generic[0m
+[0;32mI (353) spi_flash: flash io: qio[0m
+[0;32mI (357) main_task: Started on CPU0[0m
+[0;32mI (367) main_task: Calling app_main()[0m
+
+=== Split Mamba Model Inference Setup ===
+✓ TensorFlow Lite Micro initialized
+✓ Shared tensor arena: 60 KB
+✓ Model type: Float32
+✓ Models will be loaded on-demand during inference
+
+
+=== Running inference on 1 test samples ===
+
+
+--- PreSSM Memory Allocation ---
+[RecordingMicroAllocator] Arena allocation total 27856 bytes
+[RecordingMicroAllocator] Arena allocation head 25088 bytes
+[RecordingMicroAllocator] Arena allocation tail 2768 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 348 bytes with alignment overhead (requested 348 bytes for 29 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 120 bytes with alignment overhead (requested 120 bytes for 3 tensors)
+[RecordingMicroAllocator] 'Persistent buffer data' used 1364 bytes with alignment overhead (requested 1324 bytes for 10 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 480 bytes with alignment overhead (requested 480 bytes for 15 NodeAndRegistration structs)
+
+--- PreSSM Profiling Results ---
+Total time since last lap: 19059 us.
+
+FULLY_CONNECTED took 11771 us.
+RESHAPE took 160 us.
+TRANSPOSE took 288 us.
+PAD took 279 us.
+DEPTHWISE_CONV_2D took 6176 us.
+SLICE took 312 us.
+RELU took 73 us.
+
+--- StepSSM Memory Allocation ---
+[RecordingMicroAllocator] Arena allocation total 35952 bytes
+[RecordingMicroAllocator] Arena allocation head 33856 bytes
+[RecordingMicroAllocator] Arena allocation tail 2096 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 312 bytes with alignment overhead (requested 312 bytes for 26 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 160 bytes with alignment overhead (requested 160 bytes for 4 tensors)
+[RecordingMicroAllocator] 'Persistent buffer data' used 696 bytes with alignment overhead (requested 584 bytes for 15 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 512 bytes with alignment overhead (requested 512 bytes for 16 NodeAndRegistration structs)
+
+--- StepSSM Profiling Results ---
+Total time since last lap: 69410 us.
+
+FULLY_CONNECTED took 10355 us.
+RESHAPE took 298 us.
+MUL took 14544 us.
+EXP took 20434 us.
+ADD took 2250 us.
+SUM took 21529 us.
+
+--- PostSSM Memory Allocation ---
+[RecordingMicroAllocator] Arena allocation total 16824 bytes
+[RecordingMicroAllocator] Arena allocation head 15360 bytes
+[RecordingMicroAllocator] Arena allocation tail 1464 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 264 bytes with alignment overhead (requested 264 bytes for 22 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 120 bytes with alignment overhead (requested 120 bytes for 3 tensors)
+[RecordingMicroAllocator] 'Persistent buffer data' used 340 bytes with alignment overhead (requested 268 bytes for 9 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 352 bytes with alignment overhead (requested 352 bytes for 11 NodeAndRegistration structs)
+
+--- PostSSM Profiling Results ---
+Total time since last lap: 6284 us.
+
+FULLY_CONNECTED took 4855 us.
+RESHAPE took 37 us.
+TRANSPOSE took 90 us.
+RELU took 79 us.
+MUL took 275 us.
+SUM took 881 us.
+GATHER_ND took 67 us.
+
+--- Total Profiling Results ---
+Total time for all events: 94753 us.
+
+FULLY_CONNECTED took 26981 us.
+RESHAPE took 495 us.
+TRANSPOSE took 378 us.
+PAD took 279 us.
+DEPTHWISE_CONV_2D took 6176 us.
+SLICE took 312 us.
+RELU took 152 us.
+MUL took 14819 us.
+EXP took 20434 us.
+ADD took 2250 us.
+SUM took 22410 us.
+GATHER_ND took 67 us.
+
+Stack High Water Mark: 7332 bytes remaining
+
+=== Results ===
+Correct predictions: 1 / 1
+Accuracy: 100.00%
+
+[0;32mI (757) main_task: Returned from app_main()[0m

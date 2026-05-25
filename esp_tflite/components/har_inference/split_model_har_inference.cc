@@ -2,7 +2,7 @@
 #define USE_QUANTIZED_MODEL 1
 
 // Set to 1 to print allocator and profiler details after each model step.
-#define ENABLE_MODEL_DEBUG_PRINTS 0
+#define ENABLE_MODEL_DEBUG_PRINTS 1
 
 #include "split_model_har_inference.h"
 
