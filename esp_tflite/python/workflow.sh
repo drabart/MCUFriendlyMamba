@@ -61,7 +61,7 @@ OUTPUT_DIR="./models"
 PYTORCH_MODEL=""
 TFLITE_FLOAT=""
 TFLITE_INT8=""
-MAIN_DIR="../main"
+ESP32_MODELS_DIR="../components/models/full_har_inference"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -160,13 +160,14 @@ if [[ "$RUN_TRAIN" -eq 1 ]]; then
         --epochs 20 \
         --d-model "$D_MODEL" \
         --lr 0.002 \
-        --output-dir "$OUTPUT_DIR"
+        --output-dir "$OUTPUT_DIR" \
+        --model-name "best_model_${DATASET}.pt"
 
-    PYTORCH_MODEL="$OUTPUT_DIR/best_model.pt"
+    PYTORCH_MODEL="$OUTPUT_DIR/best_model_${DATASET}.pt"
     [ -f "$PYTORCH_MODEL" ] || print_error "PyTorch model not created"
     print_info "✓ PyTorch model saved: $PYTORCH_MODEL"
 else
-    PYTORCH_MODEL="${PYTORCH_MODEL:-$OUTPUT_DIR/best_model.pt}"
+    PYTORCH_MODEL="${PYTORCH_MODEL:-$OUTPUT_DIR/best_model_${DATASET}.pt}"
     [ -f "$PYTORCH_MODEL" ] || print_error "PyTorch model not found: $PYTORCH_MODEL"
     print_info "✓ Reusing existing PyTorch model: $PYTORCH_MODEL"
 fi
@@ -174,8 +175,8 @@ fi
 # Step 2-3: Convert PyTorch to Quantized TFLite (unified script)
 if [[ "$RUN_CONVERT" -eq 1 ]]; then
     print_step "Step 2-3: Converting PyTorch → Float TFLite → Quantized int8"
-    TFLITE_FLOAT="${TFLITE_FLOAT:-$OUTPUT_DIR/model_float.tflite}"
-    TFLITE_INT8="${TFLITE_INT8:-$OUTPUT_DIR/model_int8.tflite}"
+    TFLITE_FLOAT="${TFLITE_FLOAT:-$OUTPUT_DIR/model_full_${DATASET}.tflite}"
+    TFLITE_INT8="${TFLITE_INT8:-$OUTPUT_DIR/model_full_int8_${DATASET}.tflite}"
     python convert_and_quantize.py \
         --dataset "$DATASET" \
         --pytorch-model "$PYTORCH_MODEL" \
@@ -194,8 +195,8 @@ if [[ "$RUN_CONVERT" -eq 1 ]]; then
     [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
     print_info "✓ Quantized TFLite model saved: $TFLITE_INT8"
 else
-    TFLITE_FLOAT="${TFLITE_FLOAT:-$OUTPUT_DIR/model_float.tflite}"
-    TFLITE_INT8="${TFLITE_INT8:-$OUTPUT_DIR/model_int8.tflite}"
+    TFLITE_FLOAT="${TFLITE_FLOAT:-$OUTPUT_DIR/model_full_${DATASET}.tflite}"
+    TFLITE_INT8="${TFLITE_INT8:-$OUTPUT_DIR/model_full_int8_${DATASET}.tflite}"
     [ -f "$TFLITE_FLOAT" ] || print_error "TFLite float model not found: $TFLITE_FLOAT"
     [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not found: $TFLITE_INT8"
     print_info "✓ Reusing existing TFLite models:"
@@ -214,8 +215,8 @@ if [[ "$RUN_STRIP" -eq 1 ]]; then
     
     # Step 3a: Replace SELECT with SELECT_V2 (required before TFLM transforms)
     print_info "Step 3a: Replacing SELECT with SELECT_V2..."
-    python strip_names.py --schema "$SCHEMA_PATH" --tflite "$TFLITE_INT8" || print_error "Failed to replace SELECT in int8 model"
-    python strip_names.py --schema "$SCHEMA_PATH" --tflite "$TFLITE_FLOAT" || print_error "Failed to replace SELECT in float model"
+    python fix_select.py --schema "$SCHEMA_PATH" --tflite "$TFLITE_INT8" || print_error "Failed to replace SELECT in int8 model"
+    python fix_select.py --schema "$SCHEMA_PATH" --tflite "$TFLITE_FLOAT" || print_error "Failed to replace SELECT in float model"
     print_info "✓ SELECT replacement complete"
     
     # Step 3b: Run TFLM model transforms (from tflite-micro)
@@ -225,8 +226,8 @@ if [[ "$RUN_STRIP" -eq 1 ]]; then
     # Use absolute paths since we're changing directories
     TFLITE_INT8_ABS="$(cd "$(dirname "$TFLITE_INT8")" && pwd)/$(basename "$TFLITE_INT8")"
     TFLITE_FLOAT_ABS="$(cd "$(dirname "$TFLITE_FLOAT")" && pwd)/$(basename "$TFLITE_FLOAT")"
-    TFLITE_INT8_OPTIMIZED="$(cd "$(dirname "$OUTPUT_DIR")" && pwd)/$(basename "$OUTPUT_DIR")/model_int8_tflm_optimized.tflite"
-    TFLITE_FLOAT_OPTIMIZED="$(cd "$(dirname "$OUTPUT_DIR")" && pwd)/$(basename "$OUTPUT_DIR")/model_float_tflm_optimized.tflite"
+    TFLITE_INT8_OPTIMIZED="$(cd "$(dirname "$OUTPUT_DIR")" && pwd)/$(basename "$OUTPUT_DIR")/model_full_int8_${DATASET}_tflm_optimized.tflite"
+    TFLITE_FLOAT_OPTIMIZED="$(cd "$(dirname "$OUTPUT_DIR")" && pwd)/$(basename "$OUTPUT_DIR")/model_full_${DATASET}_tflm_optimized.tflite"
     
     print_info "Input INT8:  $TFLITE_INT8_ABS"
     print_info "Output INT8: $TFLITE_INT8_OPTIMIZED"
@@ -283,16 +284,16 @@ if [[ "$COPY_MODEL_ARRAYS" -eq 1 ]]; then
     print_step "Step 5: Copying model arrays into ESP32 main directory"
     
     # Copy int8 arrays
-    cp -f "$OUTPUT_DIR/model_int8_model_data.cc" "$MAIN_DIR/model_int8_model_data.cc"
-    cp -f "$OUTPUT_DIR/model_int8_model_data.h" "$MAIN_DIR/model_int8_model_data.h"
-    [ -f "$MAIN_DIR/model_int8_model_data.cc" ] || print_error "Failed to copy int8 model source to $MAIN_DIR"
-    [ -f "$MAIN_DIR/model_int8_model_data.h" ] || print_error "Failed to copy int8 model header to $MAIN_DIR"
-    print_info "✓ Copied int8 model arrays to $MAIN_DIR"
+    cp -f "$OUTPUT_DIR/model_full_int8_${DATASET}_model_data.cc" "$ESP32_MODELS_DIR/model_full_int8_${DATASET}_model_data.cc"
+    cp -f "$OUTPUT_DIR/model_full_int8_${DATASET}_model_data.h" "$ESP32_MODELS_DIR/include/model_full_int8_${DATASET}_model_data.h"
+    [ -f "$ESP32_MODELS_DIR/model_full_int8_${DATASET}_model_data.cc" ] || print_error "Failed to copy int8 model source to $ESP32_MODELS_DIR"
+    [ -f "$ESP32_MODELS_DIR/include/model_full_int8_${DATASET}_model_data.h" ] || print_error "Failed to copy int8 model header to $ESP32_MODELS_DIR"
+    print_info "✓ Copied int8 model arrays to $ESP32_MODELS_DIR"
     
-    # Copy float arrays
-    cp -f "$OUTPUT_DIR/model_float_model_data.cc" "$MAIN_DIR/model_float_model_data.cc"
-    cp -f "$OUTPUT_DIR/model_float_model_data.h" "$MAIN_DIR/model_float_model_data.h"
-    [ -f "$MAIN_DIR/model_float_model_data.cc" ] || print_error "Failed to copy float model source to $MAIN_DIR"
-    [ -f "$MAIN_DIR/model_float_model_data.h" ] || print_error "Failed to copy float model header to $MAIN_DIR"
-    print_info "✓ Copied float model arrays to $MAIN_DIR"
+    # Copy full arrays
+    cp -f "$OUTPUT_DIR/model_full_${DATASET}_model_data.cc" "$ESP32_MODELS_DIR/model_full_${DATASET}_model_data.cc"
+    cp -f "$OUTPUT_DIR/model_full_${DATASET}_model_data.h" "$ESP32_MODELS_DIR/include/model_full_${DATASET}_model_data.h"
+    [ -f "$ESP32_MODELS_DIR/model_full_${DATASET}_model_data.cc" ] || print_error "Failed to copy full model source to $ESP32_MODELS_DIR"
+    [ -f "$ESP32_MODELS_DIR/include/model_full_${DATASET}_model_data.h" ] || print_error "Failed to copy full model header to $ESP32_MODELS_DIR"
+    print_info "✓ Copied full model arrays to $ESP32_MODELS_DIR"
 fi

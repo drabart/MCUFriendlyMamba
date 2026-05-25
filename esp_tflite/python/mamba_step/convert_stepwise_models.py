@@ -17,13 +17,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from pathlib import Path
 import sys
+import json
 
 # Add parent dirs to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from stepwise_inference_example import (
-    PreSSMModule, StepSSMModule, PostSSMModule, load_trained_weights
+    PreSSMModule, StepSSMModule, PostSSMModule, load_trained_weights, load_model_metadata
 )
 
 
@@ -104,25 +105,45 @@ def _export_float_model(edge_model, output_path):
 
 
 def convert_stepwise_models(pytorch_model_path, output_dir="models"):
-    """Convert 3 stepwise models to TFLite float format (no wrappers—native multi-I/O).
+    """Convert 3 stepwise models to TFLite float format.
     
-    Converts:
-    1. PreSSMModule: (1, 10, 57) → (state: (1,10,128), gate: (1,10,128))
-    2. StepSSMModule: (x_t: (1,128), hidden: (1,128,16)) → (y: (1,128), hidden_new: (1,128,16))
-    3. PostSSMModule: (y: (1,10,128), gate: (1,10,128)) → (1, 6)
+    Loads architecture from metadata.json in model directory.
+    Supports both HAR and KWS datasets with different dimensions.
     """
     _configure_quiet_logging(verbose=False)
     device = torch.device("cpu")
 
     print("Converting stepwise models to TFLite float format...\n")
 
+    # Extract dataset name from model filename (e.g., "best_model_kws.pt" -> "kws")
+    model_filename = os.path.basename(pytorch_model_path)
+    dataset = "har"  # default
+    if "_kws" in model_filename:
+        dataset = "kws"
+    elif "_har" in model_filename:
+        dataset = "har"
+
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
 
-    # Create models
-    pre_ssm = PreSSMModule(input_dim=57, d_model=64, d_inner=128, d_conv=4)
-    step_ssm = StepSSMModule(d_inner=128, d_state=16)
-    post_ssm = PostSSMModule(d_model=64, d_inner=128, output_size=6)
+    # Load metadata to get model architecture
+    metadata = load_model_metadata(pytorch_model_path)
+    input_dim = metadata.get('input_dim', 57)
+    d_model = metadata.get('d_model', 64)
+    output_size = metadata.get('output_size', 6)
+    seq_len = metadata.get('input_shape', [1, 10, 57])[1]  # Sequence length
+    d_inner = d_model * 2  # Standard expansion
+    d_state = 16
+    d_conv = 4
+    
+    print(f"Using model architecture from metadata:")
+    print(f"  input_dim={input_dim}, d_model={d_model}, output_size={output_size}")
+    print(f"  seq_len={seq_len}, d_inner={d_inner}, d_state={d_state}, d_conv={d_conv}\n")
+
+    # Create models with correct dimensions
+    pre_ssm = PreSSMModule(input_dim=input_dim, d_model=d_model, d_inner=d_inner, d_conv=d_conv)
+    step_ssm = StepSSMModule(d_inner=d_inner, d_state=d_state)
+    post_ssm = PostSSMModule(d_model=d_model, d_inner=d_inner, output_size=output_size)
 
     # Load weights
     _print_step(1, "Loading Trained Weights")
@@ -133,19 +154,19 @@ def convert_stepwise_models(pytorch_model_path, output_dir="models"):
 
     # ========== Model 1: PreSSM ==========
     _print_step(2, "Converting PreSSM Module")
-    pre_ssm_input_shape = (1, 10, 57)
+    pre_ssm_input_shape = (1, seq_len, input_dim)
     edge_pre, sample_pre = _convert_to_litert_float_model(
         pre_ssm, pre_ssm_input_shape, device
     )
-    pre_ssm_output_path = os.path.join(output_dir, "model_pre_ssm.tflite")
+    pre_ssm_output_path = os.path.join(output_dir, f"model_pre_ssm_{dataset}.tflite")
     pre_size = _export_float_model(edge_pre, pre_ssm_output_path)
     print(f"  ✓ PreSSM (tuple output): {pre_size:.2f} KB")
 
     # ========== Model 2: StepSSM (multi-input/multi-output) ==========
     _print_step(3, "Converting StepSSM Module")
     
-    sample_x_t = torch.randn(1, 128, device=device)
-    sample_hidden = torch.zeros(1, 128, 16, device=device)
+    sample_x_t = torch.randn(1, d_inner, device=device)
+    sample_hidden = torch.zeros(1, d_inner, d_state, device=device)
     
     try:
         with _maybe_suppress_output(enabled=True):
@@ -156,7 +177,7 @@ def convert_stepwise_models(pytorch_model_path, output_dir="models"):
         edge_step = None
 
     if edge_step is not None:
-        step_ssm_output_path = os.path.join(output_dir, "model_step_ssm.tflite")
+        step_ssm_output_path = os.path.join(output_dir, f"model_step_ssm_{dataset}.tflite")
         step_size = _export_float_model(edge_step, step_ssm_output_path)
         print(f"  ✓ StepSSM (tuple output): {step_size:.2f} KB")
     else:
@@ -165,8 +186,8 @@ def convert_stepwise_models(pytorch_model_path, output_dir="models"):
     # ========== Model 3: PostSSM (multi-input) ==========
     _print_step(4, "Converting PostSSM Module")
     
-    sample_y = torch.randn(1, 10, 128, device=device)
-    sample_gate = torch.randn(1, 10, 128, device=device)
+    sample_y = torch.randn(1, seq_len, d_inner, device=device)
+    sample_gate = torch.randn(1, seq_len, d_inner, device=device)
     
     try:
         with _maybe_suppress_output(enabled=True):
@@ -177,7 +198,7 @@ def convert_stepwise_models(pytorch_model_path, output_dir="models"):
         edge_post = None
 
     if edge_post is not None:
-        post_ssm_output_path = os.path.join(output_dir, "model_post_ssm.tflite")
+        post_ssm_output_path = os.path.join(output_dir, f"model_post_ssm_{dataset}.tflite")
         post_size = _export_float_model(edge_post, post_ssm_output_path)
         print(f"  ✓ PostSSM: {post_size:.2f} KB")
     else:
@@ -198,8 +219,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         type=str,
-        default="../models/best_model.pt",
-        help="Path to trained PyTorch model (default: ../models/best_model.pt)",
+        default=None,
+        help="Path to trained PyTorch model (default: ../models/best_model_<dataset>.pt)",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["har", "kws"],
+        default="har",
+        help="Dataset type for default model name (default: har)",
     )
     parser.add_argument(
         "--output",
@@ -210,8 +238,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Expand paths
-    model_path = Path(args.model)
+    # Determine model path
+    if args.model:
+        model_path = Path(args.model)
+    else:
+        model_path = Path(f"../models/best_model_{args.dataset}.pt")
+    
     output_dir = Path(args.output)
 
     if not model_path.is_absolute():

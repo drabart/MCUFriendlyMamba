@@ -1,10 +1,29 @@
 #!/bin/bash
 # Convert split Mamba models to C++ arrays for ESP32
 # This script generates .cc and .h files from the 3 split TFLite models
+# Usage: ./convert_split_models.sh [--dataset har|kws]
+
+# Default dataset
+DATASET="har"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dataset)
+            DATASET="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 MODELS_DIR="${SCRIPT_DIR}/tflite_models"
-OUTPUT_DIR="${SCRIPT_DIR}/../../main"
+OUTPUT_DIR="${SCRIPT_DIR}/../../components/models/split_${DATASET}_inference"
+OUTPUT_INCLUDE_DIR="${OUTPUT_DIR}/include"
 GENERATE_SCRIPT="${SCRIPT_DIR}/../generate_cc_arrays.py"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 TFLITE_MICRO="${TFLITE_MICRO:-/home/drabart/Documents/ResearchProject/tflite-micro}"
@@ -17,19 +36,25 @@ if [ ! -d "$MODELS_DIR" ]; then
 fi
 
 echo "Converting split Mamba models to C++ arrays..."
+echo "Dataset: $DATASET"
 echo "Input directory: $MODELS_DIR"
 echo "Output directory: $OUTPUT_DIR"
+echo "Include directory: $OUTPUT_INCLUDE_DIR"
 echo ""
+
+# Create output directories
+mkdir -p "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_INCLUDE_DIR"
 
 models=("pre_ssm" "step_ssm" "post_ssm")
 variants=("" "_int8")
 
 for model_name in "${models[@]}"; do
     for variant_suffix in "${variants[@]}"; do
-        input_file="${MODELS_DIR}/model_${model_name}${variant_suffix}.tflite"
-        output_h="${OUTPUT_DIR}/model_${model_name}${variant_suffix}_model_data.h"
-        output_cc="${OUTPUT_DIR}/model_${model_name}${variant_suffix}_model_data.cc"
-        transformed_file="${MODELS_DIR}/model_${model_name}${variant_suffix}_tflm_optimized.tflite"
+        input_file="${MODELS_DIR}/model_${model_name}${variant_suffix}_${DATASET}.tflite"
+        output_h="${OUTPUT_INCLUDE_DIR}/model_${model_name}${variant_suffix}_${DATASET}_model_data.h"
+        output_cc="${OUTPUT_DIR}/model_${model_name}${variant_suffix}_${DATASET}_model_data.cc"
+        transformed_file="${MODELS_DIR}/model_${model_name}${variant_suffix}_${DATASET}_tflm_optimized.tflite"
 
         if [ ! -f "$input_file" ]; then
             echo "WARNING: Model not found: $input_file"
@@ -80,7 +105,7 @@ for model_name in "${models[@]}"; do
             exit 1
         fi
 
-        # Generate header file (use the original filename which now points to the optimized model)
+        # Generate header file to include/ directory
         "$PYTHON_BIN" "$GENERATE_SCRIPT" "$output_h" "$input_file"
         if [ $? -ne 0 ]; then
             echo "  ✗ Failed to generate header"
@@ -91,7 +116,7 @@ for model_name in "${models[@]}"; do
             exit 1
         fi
 
-        # Generate implementation file
+        # Generate implementation file to root of OUTPUT_DIR
         "$PYTHON_BIN" "$GENERATE_SCRIPT" "$output_cc" "$input_file"
         if [ $? -ne 0 ]; then
             echo "  ✗ Failed to generate implementation"
@@ -117,4 +142,7 @@ echo ""
 echo "✓ All models converted successfully!"
 echo ""
 echo "Generated files:"
-ls -lh "${OUTPUT_DIR}"/model_*_model_data.* 2>/dev/null | awk '{print "  " $9 " (" $5 ")"}'
+echo "  Include files in ${OUTPUT_INCLUDE_DIR##*/}:"
+ls -lh "${OUTPUT_INCLUDE_DIR}"/model_*_model_data.h 2>/dev/null | awk '{print "    " $9 " (" $5 ")"}'
+echo "  Implementation files in ${OUTPUT_DIR##*/}:"
+ls -lh "${OUTPUT_DIR}"/model_*_model_data.cc 2>/dev/null | awk '{print "    " $9 " (" $5 ")"}'

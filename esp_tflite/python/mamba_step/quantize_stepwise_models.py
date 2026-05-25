@@ -1,5 +1,7 @@
 """Quantize stepwise decomposed models using ai-edge-quantizer with calibration data.
 
+Supports both HAR and KWS datasets with automatic architecture detection from metadata.
+
 Process:
 1. PreSSM: Quantize with input calibration data (from train set)
 2. StepSSM: Quantize with calibration data from PreSSM outputs
@@ -20,15 +22,16 @@ import numpy as np
 import torch
 from pathlib import Path
 import sys
+import json
 
 # Add parent dirs to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from stepwise_inference_example import (
-    PreSSMModule, StepSSMModule, PostSSMModule, load_trained_weights
+    PreSSMModule, StepSSMModule, PostSSMModule, load_trained_weights, load_model_metadata
 )
-from data import load_har_data
+from data import load_har_data, load_speechcommands_data
 
 
 def _print_step(step_num, title):
@@ -129,7 +132,8 @@ def _evaluate_quantized_split_accuracy(pre_ssm_path, step_ssm_path, post_ssm_pat
         )
 
         hidden_state = np.zeros((1, 128, 16), dtype=np.float32)
-        y_all = np.zeros((1, 10, 128), dtype=np.float32)
+        seq_len = pre_state.shape[1]  # Get actual sequence length (10 for HAR, 51 for KWS)
+        y_all = np.zeros((1, seq_len, 128), dtype=np.float32)
 
         for timestep in range(pre_state.shape[1]):
             x_t = pre_state[:, timestep, :].astype(np.float32)
@@ -165,7 +169,9 @@ def _evaluate_quantized_split_accuracy(pre_ssm_path, step_ssm_path, post_ssm_pat
             post_output_details,
         )
         pred = int(np.argmax(logits, axis=-1)[0])
-        correct += int(pred == int(target.item()))
+        # Handle both tensor (HAR) and int (KWS) labels
+        target_val = int(target.item()) if hasattr(target, 'item') else int(target)
+        correct += int(pred == target_val)
         total += 1
 
     accuracy = correct / total if total > 0 else 0.0
@@ -429,16 +435,19 @@ def _print_model_size_summary(model_name, float_size_kb, output_quantized):
 def quantize_stepwise_models(float_model_dir="tflite_models", 
                               output_dir="tflite_models",
                               num_calibration_samples=2000,
-                              pytorch_model_path="../models/best_model.pt",
+                              pytorch_model_path=None,
                               dataset_dir="../../UCI HAR Dataset"):
     """Quantize 3 stepwise models with appropriate calibration data.
+    
+    Loads architecture from metadata.json in model directory.
+    Supports both HAR and KWS datasets.
     
     Args:
         float_model_dir: Directory with float TFLite models
         output_dir: Output directory for quantized models
         num_calibration_samples: Number of calibration samples (2000 recommended)
-        pytorch_model_path: Path to PyTorch model (for reference)
-        dataset_dir: Path to HAR dataset for calibration
+        pytorch_model_path: Path to PyTorch model (for metadata extraction)
+        dataset_dir: Path to dataset root directory for calibration data
     """
     _configure_quiet_logging(verbose=False)
     
@@ -446,14 +455,31 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
     
     os.makedirs(output_dir, exist_ok=True)
     
-    # Model paths
-    pre_ssm_float = os.path.join(float_model_dir, "model_pre_ssm.tflite")
-    step_ssm_float = os.path.join(float_model_dir, "model_step_ssm.tflite")
-    post_ssm_float = os.path.join(float_model_dir, "model_post_ssm.tflite")
+    # Load metadata if pytorch model path is provided
+    dataset = "har"  # default
+    if pytorch_model_path:
+        model_filename = os.path.basename(pytorch_model_path)
+        if "_kws" in model_filename:
+            dataset = "kws"
+        elif "_har" in model_filename:
+            dataset = "har"
+        
+        metadata = load_model_metadata(pytorch_model_path)
+        d_inner = metadata.get('d_model', 64) * 2
+        d_state = 16
+    else:
+        # Use defaults
+        d_inner = 128
+        d_state = 16
     
-    pre_ssm_quant = os.path.join(output_dir, "model_pre_ssm_int8.tflite")
-    step_ssm_quant = os.path.join(output_dir, "model_step_ssm_int8.tflite")
-    post_ssm_quant = os.path.join(output_dir, "model_post_ssm_int8.tflite")
+    # Model paths with dataset name
+    pre_ssm_float = os.path.join(float_model_dir, f"model_pre_ssm_{dataset}.tflite")
+    step_ssm_float = os.path.join(float_model_dir, f"model_step_ssm_{dataset}.tflite")
+    post_ssm_float = os.path.join(float_model_dir, f"model_post_ssm_{dataset}.tflite")
+    
+    pre_ssm_quant = os.path.join(output_dir, f"model_pre_ssm_int8_{dataset}.tflite")
+    step_ssm_quant = os.path.join(output_dir, f"model_step_ssm_int8_{dataset}.tflite")
+    post_ssm_quant = os.path.join(output_dir, f"model_post_ssm_int8_{dataset}.tflite")
     
     # Verify float models exist
     for model_path in [pre_ssm_float, step_ssm_float, post_ssm_float]:
@@ -464,8 +490,12 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
     
     # Load calibration dataset
     _print_step(1, "Loading Calibration Data")
-    train_ds, _, _ = load_har_data(dataset_dir)
-    print(f"✓ Loaded HAR dataset with {len(train_ds)} training samples")
+    if dataset == "har":
+        train_ds, _, _ = load_har_data(dataset_dir)
+        print(f"✓ Loaded HAR dataset with {len(train_ds)} training samples")
+    else:  # kws
+        train_ds, _, _ = load_speechcommands_data(dataset_dir)
+        print(f"✓ Loaded SpeechCommands (KWS) dataset with {len(train_ds)} training samples")
     
     # ========== PreSSM Quantization ==========
     _print_step(2, "Quantizing PreSSM")
@@ -518,9 +548,12 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
     print(f"  Overall reduction: {total_reduction:.1f}%")
     print(f"\n✓ All models saved to {output_dir}")
 
-    # Run a post-quantization accuracy check on the HAR test split.
+    # Run a post-quantization accuracy check on the test split.
     _print_step(6, "Evaluating Quantized Accuracy")
-    _, _, test_ds = load_har_data(dataset_dir)
+    if dataset == "har":
+        _, _, test_ds = load_har_data(dataset_dir)
+    else:  # kws
+        _, _, test_ds = load_speechcommands_data(dataset_dir)
     _evaluate_quantized_split_accuracy(pre_ssm_quant, step_ssm_quant, post_ssm_quant, test_ds)
 
 
@@ -551,8 +584,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset",
         type=str,
-        default="../../../UCI HAR Dataset",
-        help="Path to HAR dataset (default: ../../../UCI HAR Dataset)",
+        choices=["har", "kws"],
+        default="har",
+        help="Dataset type (default: har)",
+    )
+    parser.add_argument(
+        "--dataset-dir",
+        type=str,
+        default=None,
+        help="Path to dataset root (default: ../../../UCI HAR Dataset or ../../../SpeechCommands)",
     )
 
     args = parser.parse_args()
@@ -560,7 +600,15 @@ if __name__ == "__main__":
     # Expand paths
     float_dir = Path(args.float_dir)
     output_dir = Path(args.output)
-    dataset_path = Path(args.dataset)
+    
+    # Determine dataset directory
+    if args.dataset_dir:
+        dataset_path = Path(args.dataset_dir)
+    else:
+        if args.dataset == "har":
+            dataset_path = Path("../../../UCI HAR Dataset")
+        else:  # kws
+            dataset_path = Path("../../../SpeechCommands")
 
     if not float_dir.is_absolute():
         float_dir = Path(__file__).parent / float_dir
@@ -571,9 +619,13 @@ if __name__ == "__main__":
     if not dataset_path.is_absolute():
         dataset_path = Path(__file__).parent / dataset_path
 
+    # Construct pytorch model path for dataset detection
+    pytorch_model_path = Path(__file__).parent / f"../models/best_model_{args.dataset}.pt"
+
     quantize_stepwise_models(
         str(float_dir),
         str(output_dir),
         args.samples,
+        pytorch_model_path=str(pytorch_model_path),
         dataset_dir=str(dataset_path)
     )

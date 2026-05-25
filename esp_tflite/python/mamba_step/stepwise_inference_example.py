@@ -1,9 +1,10 @@
 """Stepwise inference: decompose trained model into 3 separate models.
 
-Loads best_model.pt (HARMamba) and extracts weights into:
+Loads best_model_har.pt / best_model_kws.pt and extracts weights into:
 1. PreSSM: Input projection + state/gate + conv
-2. StepSSM: Single timestep SSM with persistent state (called 10x)
+2. StepSSM: Single timestep SSM with persistent state
 3. PostSSM: Gate multiply + out_proj + pool + classify
+Supports both HAR and KWS datasets.
 """
 
 import torch
@@ -11,13 +12,26 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import os
+import json
 from pathlib import Path
 
 # Add parent dir to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models import HARMamba
-from data import load_har_data
+from data import load_har_data, load_speechcommands_data
+
+
+def load_model_metadata(model_path):
+    """Load metadata.json from the model directory to get architecture params."""
+    model_dir = Path(model_path).parent
+    metadata_file = model_dir / "metadata.json"
+    
+    if not metadata_file.exists():
+        raise FileNotFoundError(f"metadata.json not found in {model_dir}")
+    
+    with open(metadata_file, 'r') as f:
+        return json.load(f)
 
 
 class PreSSMModule(nn.Module):
@@ -162,14 +176,72 @@ def inference_stepwise(pre_ssm, step_ssm, post_ssm, x):
 
 
 def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description="Load trained model and extract weights into 3 stepwise models for inference"
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Path to trained PyTorch model (default: ../models/best_model_har.pt or best_model_kws.pt)",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["har", "kws"],
+        default="har",
+        help="Dataset type (har or kws, default: har)",
+    )
+    parser.add_argument(
+        "--dataset-dir",
+        type=str,
+        default=None,
+        help="Path to dataset root directory",
+    )
+    args = parser.parse_args()
+    
     # Setup paths
     script_dir = Path(__file__).parent.parent
-    model_path = script_dir / "models" / "best_model.pt"
     
-    # Create models
-    pre_ssm = PreSSMModule(input_dim=57, d_model=64, d_inner=128, d_conv=4)
-    step_ssm = StepSSMModule(d_inner=128, d_state=16)
-    post_ssm = PostSSMModule(d_model=64, d_inner=128, output_size=6)
+    # Determine model path
+    if args.model:
+        model_path = Path(args.model)
+        if not model_path.is_absolute():
+            model_path = script_dir / model_path
+    else:
+        model_path = script_dir / "models" / f"best_model_{args.dataset}.pt"
+    
+    # Determine dataset directory
+    if args.dataset_dir:
+        data_dir = Path(args.dataset_dir)
+    else:
+        # Default paths
+        if args.dataset == "har":
+            data_dir = Path(__file__).parent.parent.parent.parent / "UCI HAR Dataset"
+        else:  # kws
+            data_dir = Path(__file__).parent.parent.parent.parent / "SpeechCommands"
+    
+    print(f"Using model: {model_path}")
+    print(f"Using dataset: {args.dataset} at {data_dir}")
+    
+    # Load metadata to get model architecture
+    metadata = load_model_metadata(str(model_path))
+    input_dim = metadata.get('input_dim', 57)
+    d_model = metadata.get('d_model', 64)
+    output_size = metadata.get('output_size', 6)
+    seq_len = metadata.get('input_shape', [1, 10, 57])[1]  # Sequence length
+    d_inner = d_model * 2  # Standard expansion
+    d_state = 16
+    d_conv = 4
+    
+    print(f"Model architecture: input_dim={input_dim}, d_model={d_model}, output_size={output_size}, seq_len={seq_len}")
+    
+    # Create models with metadata-based dimensions
+    pre_ssm = PreSSMModule(input_dim=input_dim, d_model=d_model, d_inner=d_inner, d_conv=d_conv)
+    step_ssm = StepSSMModule(d_inner=d_inner, d_state=d_state)
+    post_ssm = PostSSMModule(d_model=d_model, d_inner=d_inner, output_size=output_size)
     
     # Load weights from trained model
     load_trained_weights(pre_ssm, step_ssm, post_ssm, str(model_path))
@@ -179,19 +251,21 @@ def main():
     step_ssm.eval()
     post_ssm.eval()
     
-    # Load HAR test data (one level above esp_tflite)
-    data_dir = Path(__file__).parent.parent.parent.parent / "UCI HAR Dataset"
-    _, _, test_ds = load_har_data(str(data_dir))
+    # Load dataset - handle both HAR and KWS
+    if args.dataset == "har":
+        _, _, test_ds = load_har_data(str(data_dir))
+    else:  # kws
+        _, _, test_ds = load_speechcommands_data(str(data_dir))
     
-    # Load reference model
-    har_model = HARMamba(input_dim=57, d_model=64, d_state=16, d_conv=4, 
-                         expand=2, output_size=6)
+    # Load reference model with correct dimensions
+    har_model = HARMamba(input_dim=input_dim, d_model=d_model, d_state=d_state, d_conv=d_conv, 
+                         expand=2, output_size=output_size)
     state_dict = torch.load(str(model_path), map_location='cpu', weights_only=True)
     har_model.load_state_dict(state_dict)
     har_model.eval()
     
     # Tracking
-    num_classes = 6
+    num_classes = output_size
     ref_correct = 0
     step_correct = 0
     both_correct = 0

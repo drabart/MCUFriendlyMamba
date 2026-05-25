@@ -117,6 +117,12 @@ def main():
         default="./models",
         help="Output directory for trained model",
     )
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default=None,
+        help="Model filename (default: best_model_<dataset>.pt, e.g., best_model_har.pt)",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -184,7 +190,13 @@ def main():
     # Training loop
     print("Starting training...")
     best_accuracy = 0
-    best_model_path = os.path.join(args.output_dir, "best_model.pt")
+    
+    # Determine model filename
+    if args.model_name:
+        model_filename = args.model_name
+    else:
+        model_filename = f"best_model_{args.dataset}.pt"
+    best_model_path = os.path.join(args.output_dir, model_filename)
     epoch_times = []
     
     for epoch in range(1, args.epochs + 1):
