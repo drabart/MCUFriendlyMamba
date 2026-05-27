@@ -18,6 +18,7 @@ os.environ.setdefault("ABSL_MIN_LOG_LEVEL", "2")
 import contextlib
 import logging
 import warnings
+import random
 import numpy as np
 import torch
 from pathlib import Path
@@ -184,113 +185,56 @@ def _get_preSsm_calibration_data(train_ds, num_samples=2000):
     
     Returns:
         Dict with signature key mapping to list of calibration samples
+        Also returns the raw calibration dataset for later inference runs
     """
     from ai_edge_quantizer.utils import tfl_interpreter_utils
     from torch.utils.data import DataLoader
+    import random
 
-    calibration_loader = DataLoader(train_ds, batch_size=1, shuffle=True)
+    # Get all indices and shuffle
+    indices = list(range(len(train_ds)))
+    random.shuffle(indices)
+    
+    # Take first num_samples random indices
+    selected_indices = indices[:num_samples]
+    
     calibration_samples = []
-    count = 0
+    raw_samples = []  # Store original samples for later full inference
 
-    for data, _ in calibration_loader:
-        if count >= num_samples:
-            break
-        sample_data = data.numpy().astype(np.float32)
+    for idx in selected_indices:
+        data, _ = train_ds[idx]
+        sample_data = data.unsqueeze(0).numpy().astype(np.float32)
         calibration_samples.append({"args_0": sample_data})
-        count += 1
+        raw_samples.append(sample_data)
 
-    print(f"✓ Loaded {count} calibration samples for PreSSM")
-    return {tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY: calibration_samples}
+    print(f"✓ Generated {len(calibration_samples)} calibration samples for PreSSM")
+    return (
+        {tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY: calibration_samples},
+        raw_samples
+    )
 
 
-def _get_stepSsm_calibration_data(pre_ssm_interpreter, train_ds, num_samples=2000):
-    """Get calibration data for StepSSM by running PreSSM on train data.
+
+
+def _run_full_inference_for_calibration(pre_ssm_interpreter, step_ssm_interpreter,
+                                         raw_samples, use_random_calib=False):
+    """Run full inference on PreSSM and StepSSM to collect proper calibration data.
     
-    StepSSM takes:
-    - x_t: (1, 128) - each timestep from PreSSM output
-    - hidden: (1, 128, 16) - hidden state (initialized to zero)
+    This generates calibration samples based on actual inference flow where hidden
+    states are accumulated properly. If use_random_calib is True, generates random
+    calibration data instead of running real inference.
     
-    Returns:
-        Dict with signature key mapping to list of calibration samples
-    """
-    from ai_edge_quantizer.utils import tfl_interpreter_utils
-    from torch.utils.data import DataLoader
-
-    calibration_loader = DataLoader(train_ds, batch_size=1, shuffle=True)
-    
-    input_details = pre_ssm_interpreter.get_input_details()
-    output_details = pre_ssm_interpreter.get_output_details()
-    
-    # Find state and gate outputs
-    state_idx = None
-    gate_idx = None
-    for i, detail in enumerate(output_details):
-        if "state" in detail["name"].lower():
-            state_idx = i
-        elif "gate" in detail["name"].lower():
-            gate_idx = i
-    
-    # Fallback: assume first output is state, second is gate
-    if state_idx is None:
-        state_idx = 0
-    if gate_idx is None:
-        gate_idx = 1 if len(output_details) > 1 else 0
-
-    calibration_samples = []
-    count = 0
-
-    for data, _ in calibration_loader:
-        if count >= num_samples:
-            break
-
-        input_data = data.numpy().astype(np.float32)
-        
-        # Run PreSSM to get intermediate outputs
-        pre_ssm_interpreter.set_tensor(input_details[0]["index"], input_data)
-        pre_ssm_interpreter.invoke()
-        
-        state_output = pre_ssm_interpreter.get_tensor(output_details[state_idx]["index"])
-        gate_output = pre_ssm_interpreter.get_tensor(output_details[gate_idx]["index"])
-        
-        # state_output shape: (1, 10, 128)
-        # Extract each timestep as calibration sample for StepSSM
-        for t in range(state_output.shape[1]):  # 10 timesteps
-            x_t = state_output[:, t, :].astype(np.float32)  # (1, 128)
-            hidden = np.zeros((1, 128, 16), dtype=np.float32)  # (1, 128, 16)
-            
-            calibration_samples.append({
-                "args_0": x_t,
-                "args_1": hidden
-            })
-            
-            if len(calibration_samples) >= num_samples * 10:
-                break
-        
-        count += 1
-
-    # Keep only num_samples worth
-    calibration_samples = calibration_samples[:num_samples * 10]
-    
-    print(f"✓ Generated {len(calibration_samples)} calibration samples for StepSSM")
-    return {tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY: calibration_samples}
-
-
-def _get_postSsm_calibration_data(pre_ssm_interpreter, step_ssm_interpreter, 
-                                   train_ds, num_samples=2000):
-    """Get calibration data for PostSSM by running PreSSM + StepSSM.
-    
-    PostSSM takes:
-    - y: (1, 10, 128) - output from running StepSSM for all timesteps
-    - gate: (1, 10, 128) - gate from PreSSM
+    Args:
+        pre_ssm_interpreter: TFLite interpreter for PreSSM
+        step_ssm_interpreter: TFLite interpreter for StepSSM
+        raw_samples: Raw input samples for calibration
+        use_random_calib: If True, generate random calibration data instead of inference
     
     Returns:
-        Dict with signature key mapping to list of calibration samples
+        Tuple of:
+        - step_ssm_samples: List of dicts with {"args_0": x_t, "args_1": hidden_state}
+        - post_ssm_samples: List of dicts with {"args_0": y_accumulated, "args_1": gate}
     """
-    from ai_edge_quantizer.utils import tfl_interpreter_utils
-    from torch.utils.data import DataLoader
-
-    calibration_loader = DataLoader(train_ds, batch_size=1, shuffle=True)
-    
     pre_input_details = pre_ssm_interpreter.get_input_details()
     pre_output_details = pre_ssm_interpreter.get_output_details()
     
@@ -310,12 +254,11 @@ def _get_postSsm_calibration_data(pre_ssm_interpreter, step_ssm_interpreter,
     if pre_gate_idx is None:
         pre_gate_idx = 1 if len(pre_output_details) > 1 else 0
     
-    # Find StepSSM y_t and hidden_new outputs - check shapes
+    # Find StepSSM y_t and hidden_new outputs
     step_y_idx = None
     step_hidden_idx = None
     for i, detail in enumerate(step_output_details):
         shape = detail["shape"]
-        # y_t should have shape ending in (1, 128), hidden should be (1, 128, 16)
         if len(shape) == 3 and shape[1] == 128 and shape[2] == 16:
             step_hidden_idx = i
         elif len(shape) == 2 and shape[1] == 128:
@@ -326,57 +269,109 @@ def _get_postSsm_calibration_data(pre_ssm_interpreter, step_ssm_interpreter,
     if step_hidden_idx is None:
         step_hidden_idx = 1 if len(step_output_details) > 1 else 0
 
-    calibration_samples = []
-    count = 0
-
-    for data, _ in calibration_loader:
-        if count >= num_samples:
-            break
-
-        input_data = data.numpy().astype(np.float32)
+    step_ssm_samples = []
+    post_ssm_samples = []
+    
+    # Determine actual sequence length from first sample
+    actual_seq_len = None
+    pre_ssm_interpreter.set_tensor(pre_input_details[0]["index"], raw_samples[0])
+    pre_ssm_interpreter.invoke()
+    state_output_first = pre_ssm_interpreter.get_tensor(
+        pre_output_details[pre_state_idx]["index"]
+    )
+    actual_seq_len = state_output_first.shape[1]
+    
+    if use_random_calib:
+        print(f"  Generating RANDOM calibration data for {len(raw_samples)} samples (seq_len={actual_seq_len})...")
+    else:
+        print(f"  Running full inference pipeline on {len(raw_samples)} samples...")
+    
+    for sample_idx, input_data in enumerate(raw_samples):
+        if (sample_idx + 1) % max(1, len(raw_samples) // 10) == 0:
+            print(f"    Processed {sample_idx + 1}/{len(raw_samples)} samples")
         
-        # Step 1: Run PreSSM
-        pre_ssm_interpreter.set_tensor(pre_input_details[0]["index"], input_data)
-        pre_ssm_interpreter.invoke()
-        
-        state_output = pre_ssm_interpreter.get_tensor(pre_output_details[pre_state_idx]["index"])
-        gate_output = pre_ssm_interpreter.get_tensor(pre_output_details[pre_gate_idx]["index"])
-        
-        # state_output: (1, 10, 128)
-        # gate_output: (1, 10, 128)
-        
-        # Step 2: Run StepSSM for each timestep to accumulate y
-        seq_len = state_output.shape[1]
-        y_accumulated = np.zeros_like(state_output)  # (1, 10, 128)
-        hidden_state = np.zeros((1, 128, 16), dtype=np.float32)
-        
-        for t in range(seq_len):
-            x_t = state_output[:, t, :].astype(np.float32)  # (1, 128)
+        if use_random_calib:
+            # Generate random calibration data with correct sequence length
+            seq_len = actual_seq_len
+            state_output = np.random.randn(1, seq_len, 128).astype(np.float32)
+            gate_output = np.random.randn(1, seq_len, 128).astype(np.float32)
             
-            # Run StepSSM
-            step_ssm_interpreter.set_tensor(step_input_details[0]["index"], x_t)
-            step_ssm_interpreter.set_tensor(step_input_details[1]["index"], hidden_state)
-            step_ssm_interpreter.invoke()
+            # Generate random StepSSM and PostSSM samples
+            y_accumulated = np.random.randn(1, seq_len, 128).astype(np.float32)
+            hidden_state = np.zeros((1, 128, 16), dtype=np.float32)
             
-            y_t = step_ssm_interpreter.get_tensor(step_output_details[step_y_idx]["index"])
-            hidden_state = step_ssm_interpreter.get_tensor(step_output_details[step_hidden_idx]["index"])
+            for t in range(seq_len):
+                x_t = state_output[:, t, :].astype(np.float32)
+                step_ssm_samples.append({
+                    "args_0": x_t.copy(),
+                    "args_1": hidden_state.copy()
+                })
+                hidden_state = np.random.randn(1, 128, 16).astype(np.float32)
             
-            # y_t might be (128,) or (1, 128), handle both
-            if len(y_t.shape) == 1:
-                y_accumulated[:, t, :] = y_t[np.newaxis, :]
-            else:
-                y_accumulated[:, t, :] = y_t
-        
-        # Add as calibration sample for PostSSM
-        calibration_samples.append({
-            "args_0": y_accumulated.astype(np.float32),
-            "args_1": gate_output.astype(np.float32)
-        })
-        
-        count += 1
+            post_ssm_samples.append({
+                "args_0": y_accumulated.copy(),
+                "args_1": gate_output.copy()
+            })
+        else:
+            # Step 1: Run PreSSM
+            pre_ssm_interpreter.set_tensor(pre_input_details[0]["index"], input_data)
+            pre_ssm_interpreter.invoke()
+            
+            state_output = pre_ssm_interpreter.get_tensor(
+                pre_output_details[pre_state_idx]["index"]
+            )  # (1, seq_len, 128)
+            gate_output = pre_ssm_interpreter.get_tensor(
+                pre_output_details[pre_gate_idx]["index"]
+            )  # (1, seq_len, 128)
+            
+            # Step 2: Run StepSSM for each timestep, accumulating hidden state
+            seq_len = state_output.shape[1]
+            y_accumulated = np.zeros_like(state_output)  # (1, seq_len, 128)
+            hidden_state = np.zeros((1, 128, 16), dtype=np.float32)
+            
+            for t in range(seq_len):
+                x_t = state_output[:, t, :].astype(np.float32)  # (1, 128)
+                
+                # SAVE THIS PAIR FOR STEPSSM CALIBRATION
+                step_ssm_samples.append({
+                    "args_0": x_t.copy(),
+                    "args_1": hidden_state.copy()
+                })
+                
+                # Run StepSSM to get next output and state
+                step_ssm_interpreter.set_tensor(step_input_details[0]["index"], x_t)
+                step_ssm_interpreter.set_tensor(step_input_details[1]["index"], hidden_state)
+                step_ssm_interpreter.invoke()
+                
+                y_t = step_ssm_interpreter.get_tensor(
+                    step_output_details[step_y_idx]["index"]
+                )
+                hidden_state = step_ssm_interpreter.get_tensor(
+                    step_output_details[step_hidden_idx]["index"]
+                )
+                
+                # Accumulate y_t
+                if len(y_t.shape) == 1:
+                    y_accumulated[:, t, :] = y_t[np.newaxis, :]
+                else:
+                    y_accumulated[:, t, :] = y_t
+            
+            # SAVE THIS PAIR FOR POSTSSM CALIBRATION
+            post_ssm_samples.append({
+                "args_0": y_accumulated.astype(np.float32).copy(),
+                "args_1": gate_output.astype(np.float32).copy()
+            })
 
-    print(f"✓ Generated {len(calibration_samples)} calibration samples for PostSSM")
-    return {tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY: calibration_samples}
+    print(f"✓ Generated {len(step_ssm_samples)} StepSSM calibration samples (total)")
+    print(f"✓ Generated {len(post_ssm_samples)} PostSSM calibration samples")
+    
+    # Randomly select 2000 from step_ssm_samples for efficiency
+    if len(step_ssm_samples) > 2000:
+        step_ssm_indices = random.sample(range(len(step_ssm_samples)), 2000)
+        step_ssm_samples = [step_ssm_samples[i] for i in step_ssm_indices]
+        print(f"✓ Randomly selected 2000 StepSSM samples for quantization")
+    
+    return step_ssm_samples, post_ssm_samples
 
 
 def _quantize_float_model(output_float, output_quantized, calibration_data, 
@@ -433,7 +428,8 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
                               output_dir="tflite_models",
                               num_calibration_samples=2000,
                               pytorch_model_path=None,
-                              dataset_dir="../../UCI HAR Dataset"):
+                              dataset_dir="../../UCI HAR Dataset",
+                              use_random_calib=False):
     """Quantize 3 stepwise models with appropriate calibration data.
     
     Loads architecture from metadata.json in model directory.
@@ -445,6 +441,7 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
         num_calibration_samples: Number of calibration samples (2000 recommended)
         pytorch_model_path: Path to PyTorch model (for metadata extraction)
         dataset_dir: Path to dataset root directory for calibration data
+        use_random_calib: If True, use random calibration data instead of real inference
     """
     _configure_quiet_logging(verbose=False)
     
@@ -497,42 +494,49 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
     # ========== PreSSM Quantization ==========
     _print_step(2, "Quantizing PreSSM")
     
-    pre_ssm_calib = _get_preSsm_calibration_data(train_ds, num_calibration_samples)
+    pre_ssm_calib, raw_samples = _get_preSsm_calibration_data(train_ds, num_calibration_samples)
     
     pre_ssm_float_size = os.path.getsize(pre_ssm_float) / 1024
     _quantize_float_model(pre_ssm_float, pre_ssm_quant, pre_ssm_calib, "PreSSM")
     _print_model_size_summary("PreSSM", pre_ssm_float_size, pre_ssm_quant)
     
-    # ========== StepSSM Quantization ==========
-    _print_step(3, "Quantizing StepSSM")
+    # ========== Build Float Interpreters for Full Inference ==========
+    _print_step(3, "Running Full Inference for Calibration Data")
     
-    # Build interpreters for generating calibration data
     pre_ssm_interp = _build_tflite_interpreter(pre_ssm_float)
+    step_ssm_interp = _build_tflite_interpreter(step_ssm_float)
     
-    step_ssm_calib = _get_stepSsm_calibration_data(
-        pre_ssm_interp, train_ds, num_calibration_samples
+    # Run full inference on all samples to get proper calibration data
+    # with correctly accumulated hidden states (or generate random if requested)
+    step_ssm_calib_samples, post_ssm_calib_samples = _run_full_inference_for_calibration(
+        pre_ssm_interp, step_ssm_interp, raw_samples, use_random_calib=use_random_calib
     )
+    
+    # Convert to quantizer format
+    from ai_edge_quantizer.utils import tfl_interpreter_utils
+    step_ssm_calib = {
+        tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY: step_ssm_calib_samples
+    }
+    post_ssm_calib = {
+        tfl_interpreter_utils.DEFAULT_SIGNATURE_KEY: post_ssm_calib_samples
+    }
+    
+    # ========== StepSSM Quantization ==========
+    _print_step(4, "Quantizing StepSSM")
     
     step_ssm_float_size = os.path.getsize(step_ssm_float) / 1024
     _quantize_float_model(step_ssm_float, step_ssm_quant, step_ssm_calib, "StepSSM")
     _print_model_size_summary("StepSSM", step_ssm_float_size, step_ssm_quant)
     
     # ========== PostSSM Quantization ==========
-    _print_step(4, "Quantizing PostSSM")
-    
-    # Build StepSSM interpreter for PostSSM calibration
-    step_ssm_interp = _build_tflite_interpreter(step_ssm_float)
-    
-    post_ssm_calib = _get_postSsm_calibration_data(
-        pre_ssm_interp, step_ssm_interp, train_ds, num_calibration_samples
-    )
+    _print_step(5, "Quantizing PostSSM")
     
     post_ssm_float_size = os.path.getsize(post_ssm_float) / 1024
     _quantize_float_model(post_ssm_float, post_ssm_quant, post_ssm_calib, "PostSSM")
     _print_model_size_summary("PostSSM", post_ssm_float_size, post_ssm_quant)
     
     # ========== Summary ==========
-    _print_step(5, "Quantization Complete")
+    _print_step(6, "Quantization Complete")
     
     total_float = pre_ssm_float_size + step_ssm_float_size + post_ssm_float_size
     total_quant = (os.path.getsize(pre_ssm_quant) + 
@@ -546,7 +550,7 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
     print(f"\n✓ All models saved to {output_dir}")
 
     # Run a post-quantization accuracy check on the test split.
-    _print_step(6, "Evaluating Quantized Accuracy")
+    _print_step(7, "Evaluating Quantized Accuracy")
     if dataset == "har":
         _, _, test_ds = load_har_data(dataset_dir)
     else:  # kws
@@ -591,6 +595,11 @@ if __name__ == "__main__":
         default=None,
         help="Path to dataset root (default: ../../../UCI HAR Dataset or ../../../SpeechCommands)",
     )
+    parser.add_argument(
+        "--random-calib",
+        action="store_true",
+        help="Use random calibration data instead of real inference (for quick testing)",
+    )
 
     args = parser.parse_args()
 
@@ -624,5 +633,6 @@ if __name__ == "__main__":
         str(output_dir),
         args.samples,
         pytorch_model_path=str(pytorch_model_path),
-        dataset_dir=str(dataset_path)
+        dataset_dir=str(dataset_path),
+        use_random_calib=args.random_calib
     )

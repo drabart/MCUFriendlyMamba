@@ -22,13 +22,13 @@ from models import HARMamba
 from data import load_har_data, load_speechcommands_data
 
 
-def load_model_metadata(model_path):
-    """Load metadata.json from the model directory to get architecture params."""
+def load_model_metadata(model_path, dataset="har"):
+    """Load metadata_{dataset}.json from the model directory to get architecture params."""
     model_dir = Path(model_path).parent
-    metadata_file = model_dir / "metadata.json"
+    metadata_file = model_dir / f"metadata_{dataset}.json"
     
     if not metadata_file.exists():
-        raise FileNotFoundError(f"metadata.json not found in {model_dir}")
+        raise FileNotFoundError(f"metadata_{dataset}.json not found in {model_dir}")
     
     with open(metadata_file, 'r') as f:
         return json.load(f)
@@ -227,7 +227,7 @@ def main():
     print(f"Using dataset: {args.dataset} at {data_dir}")
     
     # Load metadata to get model architecture
-    metadata = load_model_metadata(str(model_path))
+    metadata = load_model_metadata(str(model_path), args.dataset)
     input_dim = metadata.get('input_dim', 57)
     d_model = metadata.get('d_model', 64)
     output_size = metadata.get('output_size', 6)

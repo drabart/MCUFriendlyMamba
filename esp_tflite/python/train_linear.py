@@ -234,7 +234,8 @@ def main():
         "test_accuracy": test_accuracy,
     }
     
-    metadata_path = os.path.join(args.output_dir, "metadata.json")
+    metadata_end = "metadata_" + args.dataset + ".json"
+    metadata_path = os.path.join(args.output_dir, metadata_end)
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
     
