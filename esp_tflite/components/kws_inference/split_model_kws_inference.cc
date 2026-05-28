@@ -1,8 +1,8 @@
 // Define to choose between quantized (int8) and float models
-#define USE_QUANTIZED_MODEL 0
+#define USE_QUANTIZED_MODEL 1
 
 // Set to 1 to print allocator and profiler details after each model step.
-#define ENABLE_MODEL_DEBUG_PRINTS 1
+#define ENABLE_MODEL_DEBUG_PRINTS 0
 
 #include "split_model_kws_inference.h"
 
@@ -75,7 +75,7 @@ constexpr int kPostSSMInputSize = kYAllSize + kPreSSMGateSize;  // 6528 + 6528 =
 constexpr int kOutputLength = kNumClasses;
 
 // ========== Shared Memory ==========
-constexpr int kTensorArenaSize = 120 * 1024;  // 60 KB shared arena
+constexpr int kTensorArenaSize = 60 * 1024;  // 60 KB shared arena
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Interpreter pointer (only one used at a time)
