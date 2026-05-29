@@ -7,16 +7,18 @@ TinyML concerns the design, optimization, and deployment of machine learning mod
 
 \subsection{Mamba architecture}
 
-The Mamba architecture is based on State-Space Models (SSMs), which capture long-range dependencies while avoiding the quadratic complexity of attention. A discrete-time SSM updates a hidden state and emits outputs as:
+The Mamba architecture \cite{guMambaLinearTimeSequence2024} is a recently new architecture proposition. Its main innovation is combining Convolutional Neural Network with Recurrent Neural Network ideas. This design allows Mamba to capture long-range dependencies while maintaining a smaller memory footprint than Transformers.
+
+Its main building block is the Selective State-Space Model (S4) layer, which is intended to capture long-range dependencies in sequences while avoiding the quadratic complexity of attention. This layer is explicidly designed to break the standard Linear Time-Sequence (LTS) bottleneck of RNNs, which limits their ability to capture long-range dependencies. By using SSMs, Mamba can achieve strong performance on long-context tasks while maintaining a smaller memory footprint than Transformers.
 
 $$
 \begin{aligned}
   h_t &= \overline{A} h_{t-1} + \overline{B} x_t \\
-  y_t &= C h_t + D x_t
+  y_t &= \overline{C} h_t + D x_t
 \end{aligned}
 $$
 
-On parallel hardware, this operation can be implemented efficiently using scan (parallel-prefix) algorithms. However, SSM-based architectures pose deployment challenges: SSM layers are sensitive to quantization \cite{xuMambaQuantQuantizingMamba2025, tegonFEMBAEdgePhysiologicallyAware2026a}, and there is limited standardized tooling and export paths (for example, ONNX) for Mamba-like models \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}. These issues complicate portability and optimization for constrained devices.
+On parallel hardware, this operation can be implemented efficiently using scan (parallel-prefix) algorithms. However, SSM-based architectures pose deployment challenges: SSM layers are sensitive to quantization \cite{xuMambaQuantQuantizingMamba2025,tegonFEMBAEdgePhysiologicallyAware2026a}, and there is limited standardized tooling and export paths (for example, ONNX) for Mamba-like models \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}. These issues complicate portability and optimization for constrained devices.
 
 Despite these challenges, Mamba's compact parameterization and strong long-context performance make it a promising candidate for TinyML.
 

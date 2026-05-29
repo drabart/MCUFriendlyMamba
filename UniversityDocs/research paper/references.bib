@@ -5,6 +5,7 @@
   journaltitle = {Computational Intelligence},
   abstract     = {Human-centered computing is an emerging research field that aims to understand human behavior and integrate users and their social context with computer systems. One of the most recent, challenging and appealing applications in this framework consists in sensing human body motion using smartphones to gather context information about people actions. In this context, we describe in this work an Activity Recognition database, built from the recordings of 30 subjects doing Activities of Daily Living (ADL) while carrying a waist-mounted smartphone with embedded inertial sensors, which is released to public domain on a well-known on-line repository. Results, obtained on the dataset by exploiting a multiclass Support Vector Machine (SVM), are also acknowledged.},
   langid       = {english},
+  keywords     = {sorted},
   file         = {/home/drabart/Zotero/storage/PZVVWLYC/Anguita et al. - 2013 - A Public Domain Dataset for Human Activity Recognition Using Smartphones.pdf}
 }
 
@@ -23,6 +24,190 @@
   abstract     = {Recent advances in the field of Neural Architecture Search (NAS) have made it possible to develop state-of-the-art deep learning systems without requiring extensive human expertise and hyperparameter tuning. In most previous research, little concern was given to the resources required to run the generated systems. In this paper, we present an improvement on a recent NAS method, Efficient Neural Architecture Search (ENAS). We adapt ENAS to not only take into account the network’s performance, but also various constraints that would allow these networks to be ported to embedded devices. Our results show ENAS’ ability to comply with these added constraints. In order to show the efficacy of our system, we demonstrate it by designing a Recurrent Neural Network that predicts words as they are spoken, and meets the constraints set out for operation on an embedded device, along with a Convolutional Neural Network, capable of classifying 32x32 RGB images at a rate of 1 FPS on an embedded device.},
   langid       = {english},
   file         = {/home/drabart/Zotero/storage/PITGZ64J/Cassimon et al. - 2020 - Designing resource-constrained neural networks using neural architecture search targeting embedded d.pdf}
+}
+
+@misc{daoTransformersAreSSMs2024,
+  title       = {Transformers Are {{SSMs}}: {{Generalized Models}} and {{Efficient Algorithms Through Structured State Space Duality}}},
+  shorttitle  = {Transformers Are {{SSMs}}},
+  author      = {Dao, Tri and Gu, Albert},
+  date        = {2024-05-31},
+  eprint      = {2405.21060},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2405.21060},
+  url         = {http://arxiv.org/abs/2405.21060},
+  urldate     = {2026-04-23},
+  abstract    = {While Transformers have been the main architecture behind deep learning’s success in language modeling, state-space models (SSMs) such as Mamba have recently been shown to match or outperform Transformers at small to medium scale. We show that these families of models are actually quite closely related, and develop a rich framework of theoretical connections between SSMs and variants of attention, connected through various decompositions of a well-studied class of structured semiseparable matrices. Our state space duality (SSD) framework allows us to design a new architecture (Mamba-2) whose core layer is an a refinement of Mamba’s selective SSM that is 2-8× faster, while continuing to be competitive with Transformers on language modeling.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/NXPSKM5W/Dao and Gu - 2024 - Transformers are SSMs Generalized Models and Efficient Algorithms Through Structured State Space Du.pdf}
+}
+
+@misc{davidTensorFlowLiteMicro2021,
+  title       = {{{TensorFlow Lite Micro}}: {{Embedded Machine Learning}} on {{TinyML Systems}}},
+  shorttitle  = {{{TensorFlow Lite Micro}}},
+  author      = {David, Robert and Duke, Jared and Jain, Advait and Reddi, Vijay Janapa and Jeffries, Nat and Li, Jian and Kreeger, Nick and Nappier, Ian and Natraj, Meghna and Regev, Shlomi and Rhodes, Rocky and Wang, Tiezhen and Warden, Pete},
+  date        = {2021-03-13},
+  eprint      = {2010.08678},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2010.08678},
+  url         = {http://arxiv.org/abs/2010.08678},
+  urldate     = {2026-04-25},
+  abstract    = {TensorFlow Lite Micro (TFLM) is an open-source ML inference framework for running deep-learning models on embedded systems. TFLM tackles the efficiency requirements imposed by embedded-system resource constraints and the fragmentation challenges that make cross-platform interoperability nearly impossible. The framework adopts a unique interpreter-based approach that provides flexibility while overcoming these unique challenges. In this paper, we explain the design decisions behind TFLM and describe its implementation. We present an evaluation of TFLM to demonstrate its low resource requirements and minimal run-time performance overheads.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Artificial Intelligence,Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/YMWLKVXS/David et al. - 2021 - TensorFlow Lite Micro Embedded Machine Learning on TinyML Systems.pdf}
+}
+
+@inproceedings{dokicInferenceSpeedQuantisation2020,
+  title      = {Inference Speed and Quantisation of Neural Networks with {{TensorFlow Lite}} for {{Microcontrollers}} Framework},
+  booktitle  = {2020 5th {{South-East Europe Design Automation}}, {{Computer Engineering}}, {{Computer Networks}} and {{Social Media Conference}} ({{SEEDA-CECNSM}})},
+  author     = {Dokic, Kristian and Martinovic, Marko and Mandusic, Dubravka},
+  date       = {2020-09},
+  pages      = {1--6},
+  doi        = {10.1109/SEEDA-CECNSM49515.2020.9221846},
+  url        = {https://ieeexplore.ieee.org/document/9221846/},
+  urldate    = {2026-05-15},
+  abstract   = {In the last few years, microcontrollers became more and more powerful, and many authors have started to use them for different machine learning projects. One of the most popular frameworks for machine learning is TensorFlow, and their authors began to develop this framework for microcontrollers. The goal of this paper is to analyses the full connected neural networks inference speed depending on the number of neurons of one popular microcontroller (Arduino Nano 33 BLE Sense) with simple neural networks implementation, as well as the impact of neural network weights quantisation. We expected a reduction in the size of the model with the selected quantization by four times, which was achieved, but with a large number of neurons in the neural network. TensorFlow Lite for Microcontrollers is used with the Arduino Integrated Development Environment. Neural networks with two hidden layers are used with a different number of neurons.},
+  eventtitle = {2020 5th {{South-East Europe Design Automation}}, {{Computer Engineering}}, {{Computer Networks}} and {{Social Media Conference}} ({{SEEDA-CECNSM}})},
+  keywords   = {Arduino,Design automation,Europe,Machine learning,Microcontrollers,neural network,Neurons,Propagation speed,Quantisation,Quantization (signal),Social networking (online)},
+  file       = {/home/drabart/Zotero/storage/DV2TTECA/Dokic et al. - 2020 - Inference speed and quantisation of neural networks with TensorFlow Lite for Microcontrollers framew.pdf}
+}
+
+@misc{guMambaLinearTimeSequence2024,
+  title       = {Mamba: {{Linear-Time Sequence Modeling}} with {{Selective State Spaces}}},
+  shorttitle  = {Mamba},
+  author      = {Gu, Albert and Dao, Tri},
+  date        = {2024-05-31},
+  eprint      = {2312.00752},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2312.00752},
+  url         = {http://arxiv.org/abs/2312.00752},
+  urldate     = {2026-04-19},
+  abstract    = {Foundation models, now powering most of the exciting applications in deep learning, are almost universally based on the Transformer architecture and its core attention module. Many subquadratic-time architectures such as linear attention, gated convolution and recurrent models, and structured state space models (SSMs) have been developed to address Transformers’ computational inefficiency on long sequences, but they have not performed as well as attention on important modalities such as language. We identify that a key weakness of such models is their inability to perform content-based reasoning, and make several improvements. First, simply letting the SSM parameters be functions of the input addresses their weakness with discrete modalities, allowing the model to selectively propagate or forget information along the sequence length dimension depending on the current token. Second, even though this change prevents the use of efficient convolutions, we design a hardware-aware parallel algorithm in recurrent mode. We integrate these selective SSMs into a simplified end-to-end neural network architecture without attention or even MLP blocks (Mamba). Mamba enjoys fast inference (5× higher throughput than Transformers) and linear scaling in sequence length, and its performance improves on real data up to million-length sequences. As a general sequence model backbone, Mamba achieves state-of-the-art performance across several modalities such as language, audio, and genomics. On language modeling, our Mamba-3B model outperforms Transformers of the same size and matches Transformers twice its size, both in pretraining and downstream evaluation.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Artificial Intelligence,Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/XG8ZYE5M/Gu and Dao - 2024 - Mamba Linear-Time Sequence Modeling with Selective State Spaces.pdf}
+}
+
+@misc{kimEMambaEfficientAcceleration2025,
+  title       = {{{eMamba}}: {{Efficient Acceleration Framework}} for {{Mamba Models}} in {{Edge Computing}}},
+  shorttitle  = {{{eMamba}}},
+  author      = {Kim, Jiyong and Lee, Jaeho and Lin, Jiahao and Kanani, Alish and Sun, Miao and Ogras, Umit Y. and Park, Jaehyun},
+  date        = {2025-08-14},
+  eprint      = {2508.10370},
+  eprinttype  = {arXiv},
+  eprintclass = {cs.LG},
+  doi         = {10.48550/arXiv.2508.10370},
+  url         = {http://arxiv.org/abs/2508.10370},
+  urldate     = {2026-05-19},
+  abstract    = {JIYONG KIM, University of Ulsan, Republic of Korea JAEHO LEE, University of Ulsan, Republic of Korea JIAHAO LIN, University of Wisconsin-Madison, USA ALISH KANANI, University of Wisconsin-Madison, USA MIAO SUN, University of Wisconsin-Madison, USA UMIT Y. OGRAS∗, University of Wisconsin-Madison, USA JAEHYUN PARK∗, University of Ulsan, Republic of Korea State Space Model (SSM)-based machine learning architectures have recently gained significant attention for processing sequential data. Mamba, a recent sequence-to-sequence SSM, offers competitive accuracy with superior computational efficiency compared to state-of-the-art transformer models. While this advantage makes Mamba particularly promising for resource-constrained edge devices, no hardware acceleration frameworks are currently optimized for deploying it in such environments. This paper presents eMamba, a comprehensive end-to-end hardware acceleration framework explicitly designed for deploying Mamba models on edge platforms. eMamba maximizes computational efficiency by replacing complex normalization layers with lightweight hardware-aware alternatives and approximating expensive operations, such as SiLU activation and exponentiation, considering the target applications. Then, it performs an approximation-aware neural architecture search (NAS) to tune the learnable parameters used during approximation. Evaluations with Fashion-MNIST, CIFAR-10, and MARS, an open-source human pose estimation dataset, show eMamba achieves comparable accuracy to state-of-the-art techniques using 1.63–19.9× fewer parameters. In addition, it generalizes well to large-scale natural language tasks, demonstrating stable perplexity across varying sequence lengths on the WikiText2 dataset. We also quantize and implement the entire eMamba pipeline on an AMD ZCU102 FPGA and ASIC using GlobalFoundries (GF) 22 nm technology. Experimental results show 4.95–5.62× lower latency and 2.22–9.95× higher throughput, with 4.77× smaller area, 9.84× lower power, and 48.6× lower energy consumption than baseline solutions while maintaining competitive accuracy.},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Artificial Intelligence,Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/8C4VWFLQ/Kim et al. - 2025 - eMamba Efficient Acceleration Framework for Mamba Models in Edge Computing.pdf}
+}
+
+@misc{lahotiMamba3ImprovedSequence2026,
+  title       = {Mamba-3: {{Improved Sequence Modeling}} Using {{State Space Principles}}},
+  shorttitle  = {Mamba-3},
+  author      = {Lahoti, Aakash and Li, Kevin Y. and Chen, Berlin and Wang, Caitlin and Bick, Aviv and Kolter, J. Zico and Dao, Tri and Gu, Albert},
+  date        = {2026-03-16},
+  eprint      = {2603.15569},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2603.15569},
+  url         = {http://arxiv.org/abs/2603.15569},
+  urldate     = {2026-04-23},
+  abstract    = {Scaling inference-time compute has emerged as an important driver of LLM performance, making inference efficiency a central focus of model design alongside model quality. While the current Transformer-based models deliver strong model quality, their quadratic compute and linear memory make inference expensive. This has spurred the development of sub-quadratic models with reduced linear compute and constant memory requirements. However, many recent linear models trade off model quality and capability for algorithmic efficiency, failing on tasks such as state tracking. Moreover, their theoretically linear inference remains hardware-inefficient in practice. Guided by an inference-first perspective, we introduce three core methodological improvements inspired by the state space model (SSM) viewpoint of linear models. We combine: (1) a more expressive recurrence derived from SSM discretization, (2) a complex-valued state update rule that enables richer state tracking, and (3) a multi-input, multi-output (MIMO) formulation for better model performance without increasing decode latency. Together with architectural refinements, our Mamba-3 model achieves significant gains across retrieval, state-tracking, and downstream language modeling tasks. At the 1.5B scale, Mamba-3 improves average downstream accuracy by 0.6 percentage points compared to the next best model (Gated DeltaNet), with Mamba-3’s MIMO variant further improving accuracy by another 1.2 points for a total 1.8 point gain. Across state-size experiments, Mamba-3 achieves comparable perplexity to Mamba-2 despite using half of its predecessor’s state size. Our evaluations demonstrate Mamba-3’s ability to advance the performance-efficiency Pareto frontier.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/QVHUAZ9P/Lahoti et al. - 2026 - Mamba-3 Improved Sequence Modeling using State Space Principles.pdf}
+}
+
+@misc{liPhysicsGuidedTinyMambaTransformer2026,
+  title       = {Physics-{{Guided Tiny-Mamba Transformer}} for {{Reliability-Aware Early Fault Warning}}},
+  author      = {Li, Changyu and Huang, Dingcheng and Yao, Kexuan and Ni, Xiaoya and Shen, Lijuan and Luo, Fei},
+  date        = {2026-01-29},
+  eprint      = {2601.21293},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2601.21293},
+  url         = {http://arxiv.org/abs/2601.21293},
+  urldate     = {2026-04-24},
+  abstract    = {Reliability-centered prognostics for rotating machinery requires early warning signals that remain accurate under nonstationary operating conditions, domain shifts across speed/load/sensors, and severe class imbalance, while keeping the false-alarm rate small and predictable. We propose the Physics-Guided Tiny-Mamba Transformer (PG-TMT), a compact tri-branch encoder tailored for online condition monitoring. A depthwise-separable convolutional stem captures microtransients, a Tiny-Mamba state-space branch models near-linear long-range dynamics, and a lightweight local Transformer encodes cross-channel resonances. We derive an analytic temporalto-spectral mapping that ties the model’s attention spectrum to classical bearing fault-order bands, yielding a band-alignment score that quantifies physical plausibility and provides physicsgrounded explanations. To ensure decision reliability, healthyscore exceedances are modeled with extreme-value theory (EVT), which yields an on-threshold achieving a target false-alarm intensity (events/hour); a dual-threshold hysteresis with a minimum hold time further suppresses chatter. Under a leakage-free streaming protocol with right-censoring of missed detections on CWRU, Paderborn, XJTU-SY, and an industrial pilot, PG-TMT attains higher precision–recall AUC (primary under imbalance), competitive or better ROC AUC, and shorter mean time-todetect at matched false-alarm intensity, together with strong cross-domain transfer. By coupling physics-aligned representations with EVT-calibrated decision rules, PG-TMT delivers calibrated, interpretable, and deployment-ready early warnings for reliability-centric prognostics and health management.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Artificial Intelligence,Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/8IMBA7R5/Li et al. - 2026 - Physics-Guided Tiny-Mamba Transformer for Reliability-Aware Early Fault Warning.pdf}
+}
+
+@misc{maTinyViMFrequencyDecoupling2025,
+  title       = {{{TinyViM}}: {{Frequency Decoupling}} for {{Tiny Hybrid Vision Mamba}}},
+  shorttitle  = {{{TinyViM}}},
+  author      = {Ma, Xiaowen and Ni, Zhenliang and Chen, Xinghao},
+  date        = {2025-12-08},
+  eprint      = {2411.17473},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2411.17473},
+  url         = {http://arxiv.org/abs/2411.17473},
+  urldate     = {2026-04-24},
+  abstract    = {Mamba has shown great potential for computer vision due to its linear complexity in modeling the global context with respect to the input length. However, existing lightweight Mamba-based backbones cannot demonstrate performance that matches Convolution or Transformer-based methods. By observing, we find that simply modifying the scanning path in the image domain is not conducive to fully exploiting the potential of vision Mamba. In this paper, we first perform comprehensive spectral and quantitative analyses, and verify that the Mamba block mainly models low-frequency information under Convolution-Mamba hybrid architecture. Based on the analyses, we introduce a novel Laplace mixer to decouple the features in terms of frequency and input only the low-frequency components into the Mamba block. In addition, considering the redundancy of the features and the different requirements for high-frequency details and low-frequency global information at different stages, we introduce a frequency ramp inception, i.e., gradually reduce the input dimensions of the high-frequency branches, so as to efficiently trade-off the high-frequency and low-frequency components at different layers. By integrating mobile-friendly convolution and efficient Laplace mixer, we build a series of tiny hybrid vision Mamba called TinyViM. The proposed TinyViM achieves impressive performance on several downstream tasks including image classification, semantic segmentation, object detection and instance segmentation. In particular, TinyViM outperforms Convolution, Transformer and Mamba-based models with similar scales, and the throughput is about 2-3 times higher than that of other Mamba-based models. Code is available at https://github.com/xwmaxwma/TinyViM.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Computer Vision and Pattern Recognition},
+  file        = {/home/drabart/Zotero/storage/9VEWRK48/Ma et al. - 2025 - TinyViM Frequency Decoupling for Tiny Hybrid Vision Mamba.pdf}
+}
+
+@misc{orTorchAOPyTorchNativeTrainingtoServing2025,
+  title       = {{{TorchAO}}: {{PyTorch-Native Training-to-Serving Model Optimization}}},
+  shorttitle  = {{{TorchAO}}},
+  author      = {Or, Andrew and Jain, Apurva and Vega-Myhre, Daniel and Cai, Jesse and Hernandez, Charles David and Zheng, Zhenrui and Guessous, Driss and Kuznetsov, Vasiliy and Puhrsch, Christian and Saroufim, Mark and Rao, Supriya and Tran, Thien and Samardžić, Aleksandar},
+  date        = {2025-07-21},
+  eprint      = {2507.16099},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2507.16099},
+  url         = {http://arxiv.org/abs/2507.16099},
+  urldate     = {2026-05-03},
+  abstract    = {We present TorchAO, a PyTorch-native model optimization framework leveraging quantization and sparsity to provide an end-to-end, trainingto-serving workflow for AI models. TorchAO supports a variety of popular model optimization techniques, including FP8 quantized training, quantization-aware training (QAT), post-training quantization (PTQ), and 2:4 sparsity, and leverages a novel tensor subclass abstraction to represent a variety of widely-used, backend agnostic low precision data types, including INT4, INT8, FP8, MXFP4, MXFP6, and MXFP8. TorchAO integrates closely with the broader ecosystem at each step of the model optimization pipeline, from pre-training (TorchTitan (Liang et al., 2024)) to fine-tuning (TorchTune (torchtune, 2025), Axolotl (Axolotl, 2025)) to serving (HuggingFace (Wolf et al., 2019), vLLM (Kwon et al., 2023), SGLang (Zheng et al.), ExecuTorch (executorch, 2025)), connecting an otherwise fragmented space in a single, unified workflow. TorchAO has enabled recent launches of the quantized Llama 3.2 1B/3B (MetaAI, 2025b) and LlamaGuard3-8B models (Inan et al., 2023) and is open-source at https://github. com/pytorch/ao/.},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/J2NCSF63/Or et al. - 2025 - TorchAO PyTorch-Native Training-to-Serving Model Optimization.pdf}
+}
+
+@article{shihabEfficientUnstructuredPruning,
+  title    = {Efficient {{Unstructured Pruning}} of {{Mamba State-Space Models}} for {{Resource-Constrained Environments}}},
+  author   = {Shihab, Ibne Farabi and Akter, Sanjeda and Sharma, Anuj},
+  abstract = {As AI deployment shifts to edge devices, efficient sequence modeling becomes critical. State-space models (SSMs), particularly Mamba, rival Transformers with linear-time complexity and strong performance across tasks, yet their large parameter counts hinder resource-constrained use. We propose a novel unstructured pruning framework tailored for Mamba, achieving up to 70\% parameter reduction with only 3–9\% performance loss. Unlike Transformer-focused pruning, our approach leverages Mamba’s recurrent dynamics through: (1) pruning based on weight and gradient importance to preserve critical parameters, (2) a gradual pruning process to ensure model stability, and (3) a global strategy optimizing parameter allocation across the model. Extensive experiments on WikiText-103, Long Range Arena, and ETT benchmarks show significant efficiency gains, with 1.77× faster inference and 46\% less memory. Our component analysis reveals Mamba’s robustness, enabling practical deployment while requiring careful use to avoid biases in sensitive applications.},
+  year     = {2025},
+  journal  = {arXiv preprint},
+  langid   = {english},
+  file     = {/home/drabart/Zotero/storage/BFEMK765/Shihab et al. - Efficient Unstructured Pruning of Mamba State-Space Models for Resource-Constrained Environments.pdf}
+}
+
+@misc{tegonFEMBAEdgePhysiologicallyAware2026a,
+  title       = {{{FEMBA}} on the {{Edge}}: {{Physiologically-Aware Pre-Training}}, {{Quantization}}, and {{Deployment}} of a {{Bidirectional Mamba EEG Foundation Model}} on an {{Ultra-low Power Microcontroller}}},
+  shorttitle  = {{{FEMBA}} on the {{Edge}}},
+  author      = {Tegon, Anna and Lehmann, Nicholas and Li, Yawei and Cossettini, Andrea and Benini, Luca and Ingolfsson, Thorir Mar},
+  date        = {2026-03-18},
+  eprint      = {2603.26716},
+  eprinttype  = {arXiv},
+  eprintclass = {eess},
+  doi         = {10.48550/arXiv.2603.26716},
+  url         = {http://arxiv.org/abs/2603.26716},
+  urldate     = {2026-04-21},
+  abstract    = {Objective: To enable continuous, long-term neuromonitoring on wearable devices by overcoming the computational bottlenecks of Transformer-based Electroencephalography (EEG) foundation models and the quantization challenges inherent to State-Space Models (SSMs). Methods: We present FEMBA, a bidirectional Mamba architecture pre-trained on over 21,000 hours of EEG. We introduce a novel Physiologically-Aware pre-training objective, consisting of a reconstruction with low-pass filtering, to prioritize neural oscillations over high-frequency artifacts. To address the activation outliers common in SSMs, we employ Quantization-Aware Training (QAT) to compress the model to 2-bit weights. The framework is deployed on a parallel ultra-low-power RISC-V microcontroller (GAP9) using a custom double-buffered memory streaming scheme. Results: The proposed low-pass pretraining improves downstream AUROC on TUAB from 0.863 to 0.893 and AUPR from 0.862 to 0.898 compared to the best contrastive baseline. QAT successfully compresses weights with negligible performance loss, whereas standard post-training quantization degrades accuracy by approximately 30\%. The embedded implementation achieves deterministic real-time inference (1.70 s per 5 s window) and reduces the memory footprint by 74\% (to ≈2 MB), achieving competitive accuracy with up to 27× fewer FLOPs than Transformer benchmarks. Conclusion: FEMBA demonstrates that Mamba-based foundation models can be effectively quantized and deployed on extreme-edge hardware without sacrificing the representation quality required for robust clinical analysis. Significance: This work establishes the first full-stack framework for deploying large-scale EEG foundation models on ultra-low-power wearables, facilitating continuous, SSM based monitoring for epilepsy and sleep disorders.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Machine Learning,Electrical Engineering and Systems Science - Signal Processing},
+  file        = {/home/drabart/Zotero/storage/7W3CI53E/Tegon et al. - 2026 - FEMBA on the Edge Physiologically-Aware Pre-Training, Quantization, and Deployment of a Bidirection.pdf}
 }
 
 @article{trileEfficientNeuralNetworks2026,
@@ -51,3 +236,71 @@
   langid   = {english},
   file     = {/home/drabart/Zotero/storage/Y3VDASWE/Wang et al. - Efficient Speech Command Recognition Leveraging Spiking Neural Network and Curriculum Learning-based.pdf}
 }
+
+@article{wangLightMambaResourceEfficientDeepLearning2026,
+  title        = {{{LightMamba}}: {{A Resource-Efficient Deep-Learning Method}} for {{UWB NLOS Identification Based}} on {{Selective State-Space Modeling}}},
+  shorttitle   = {{{LightMamba}}},
+  author       = {Wang, Tao and Shu, Yuanming and Qiao, Lulu and Ding, Dong and Li, Guangxue},
+  date         = {2026-03},
+  journaltitle = {IEEE Internet of Things Journal},
+  volume       = {13},
+  number       = {5},
+  pages        = {8735--8748},
+  issn         = {2327-4662},
+  doi          = {10.1109/JIOT.2025.3641826},
+  url          = {https://ieeexplore.ieee.org/abstract/document/11284866},
+  urldate      = {2026-04-21},
+  abstract     = {Ultrawideband (UWB) technology is pivotal for centimeter-level indoor positioning, yet its accuracy is severely degraded by non-line-of-sight (NLOS) propagation in complex industrial environments. Existing NLOS identification methods face critical trade-offs between model accuracy, computational efficiency, and dynamic scenario adaptability. To address these challenges, we propose a novel lightweight framework named LightMamba that integrates selective state-space models (SSMs) with UWB channel impulse response (CIR) characteristics. LightMamba introduces three key innovations: 1) a dual-branch feature extraction module that combines segmented CIR projection with auxiliary channel feature alignment, preserving both local temporal dependencies and global environmental semantics; 2) a Mamba block with dynamic path selection, enabling adaptive focus on NLOS-induced multipath components while maintaining linear computational complexity and efficient processing of long sequences; 3) a resource-efficient architecture achieving millisecond-level inference latency without sacrificing accuracy. Extensive experiments on three real-world datasets (eWINE, IULCD, OIUD) demonstrate LightMamba’s superiority, achieving a high F1 -score of 95.20\% on the OIUD dataset with only 22k parameters, outperforming baseline models while reducing the parameter number by 96\% compared to long short-term memory (LSTM) with 545k parameters. This work provides a new solution for high-reliability UWB-based indoor positioning systems in industrial Internet of Things (IIoTs) applications.},
+  keywords     = {Accuracy,Channel impulse response,Computational modeling,Feature extraction,Industrial Internet of Things,Industrial Internet of Things (IIoTs),LightMamba,Location awareness,non-line-of-sight (NLOS),Object recognition,selective state-space model (SSM),Signal processing algorithms,State-space methods,Tiny machine learning,ultrawideband (UWB)},
+  file         = {/home/drabart/Zotero/storage/9GTQFJYD/Wang et al. - 2026 - LightMamba A Resource-Efficient Deep-Learning Method for UWB NLOS Identification Based on Selective.pdf}
+}
+
+@misc{xuMambaLiteMicroMemoryOptimizedMamba2025,
+  title       = {{{MambaLite-Micro}}: {{Memory-Optimized Mamba Inference}} on {{MCUs}}},
+  shorttitle  = {{{MambaLite-Micro}}},
+  author      = {Xu, Hongjun and Xia, Junxi and Yang, Weisi and Sui, Yueyuan and Xia, Stephen},
+  date        = {2025-09-05},
+  eprint      = {2509.05488},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2509.05488},
+  url         = {http://arxiv.org/abs/2509.05488},
+  urldate     = {2026-04-19},
+  abstract    = {Deploying Mamba models on microcontrollers (MCUs) remains challenging due to limited memory, the lack of native operator support, and the absence of embeddedfriendly toolchains. We present, to our knowledge, the first deployment of a Mamba-based neural architecture on a resource-constrained MCU, a fully C-based runtime-free inference engine: MambaLite-Micro. Our pipeline maps a trained PyTorch Mamba model to on-device execution by (1) exporting model weights into a lightweight format, and (2) implementing a handcrafted Mamba layer and supporting operators in C with operator fusion and memory layout optimization. MambaLite-Micro eliminates large intermediate tensors, reducing 83.0\% peak memory, while maintaining an average numerical error of only 1.7 × 10−5 relative to the PyTorch Mamba implementation. When evaluated on keyword spotting (KWS) and human activity recognition (HAR) tasks, MambaLite-Micro achieved 100\% consistency with the PyTorch baselines, fully preserving classification accuracy. We further validated portability by deploying on both ESP32S3 and STM32H7 microcontrollers, demonstrating consistent operation across heterogeneous embedded platforms and paving the way for bringing advanced sequence models like Mamba to real-world resource-constrained applications.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Artificial Intelligence,Computer Science - Machine Learning,Computer Science - Operating Systems},
+  file        = {/home/drabart/Zotero/storage/4VIKPRAF/Xu et al. - 2025 - MambaLite-Micro Memory-Optimized Mamba Inference on MCUs.pdf}
+}
+
+@misc{xuMambaQuantQuantizingMamba2025,
+  title       = {{{MambaQuant}}: {{Quantizing}} the {{Mamba Family}} with {{Variance Aligned Rotation Methods}}},
+  shorttitle  = {{{MambaQuant}}},
+  author      = {Xu, Zukang and Yue, Yuxuan and Hu, Xing and Yuan, Zhihang and Jiang, Zixu and Chen, Zhixuan and Yu, Jiangyong and Xu, Chen and Zhou, Sifan and Yang, Dawei},
+  date        = {2025-03-11},
+  eprint      = {2501.13484},
+  eprinttype  = {arXiv},
+  eprintclass = {cs},
+  doi         = {10.48550/arXiv.2501.13484},
+  url         = {http://arxiv.org/abs/2501.13484},
+  urldate     = {2026-04-21},
+  abstract    = {Mamba is an efficient sequence model that rivals Transformers and demonstrates significant potential as a foundational architecture for various tasks. Quantization is commonly used in neural networks to reduce model size and computational latency. However, applying quantization to Mamba remains underexplored, and existing quantization methods, which have been effective for CNN and Transformer models, appear inadequate for Mamba models (e.g., Quarot suffers a 21\% accuracy drop on Vim-T† even under W8A8). We have pioneered the exploration of this issue and identified several key challenges. First, significant outliers are present in gate projections, output projections, and matrix multiplications. Second, Mamba’s unique parallel scan further amplifies these outliers, leading to uneven and heavy-tailed data distributions. Third, even with the application of the Hadamard transform, the variance across channels in weights and activations still remains inconsistent. To these ends, we propose MambaQuant, a post-training quantization (PTQ) framework consisting of: 1) Karhunen-Loe`ve Transformation (KLT) enhanced rotation, rendering the rotation matrix adaptable to diverse channel distributions. 2) Smooth-Fused rotation, which equalizes channel variances and can merge additional parameters into model weights. Experiments show that MambaQuant can quantize both weights and activations into 8-bit with less than 1\% accuracy loss for Mamba-based vision and language tasks. To the best of our knowledge, MambaQuant is the first comprehensive PTQ design for the Mamba family, paving the way for further advancements in its application.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language,Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/UTBUKBHN/Xu et al. - 2025 - MambaQuant Quantizing the Mamba Family with Variance Aligned Rotation Methods.pdf}
+}
+
+@article{speechcommandsv2,
+  author        = { {Warden}, P.},
+  title         = {{Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition}},
+  journal       = {ArXiv e-prints},
+  archiveprefix = {arXiv},
+  eprint        = {1804.03209},
+  primaryclass  = {cs.CL},
+  keywords      = {Computer Science - Computation and Language, Computer Science - Human-Computer Interaction},
+  year          = 2018,
+  month         = apr,
+  url           = {https://arxiv.org/abs/1804.03209}
+}
+
