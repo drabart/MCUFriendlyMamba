@@ -62,6 +62,45 @@
   file        = {/home/drabart/Zotero/storage/YMWLKVXS/David et al. - 2021 - TensorFlow Lite Micro Embedded Machine Learning on TinyML Systems.pdf}
 }
 
+@online{enokiboriRTsfNetDNNModel2024,
+  title       = {{{rTsfNet}}: A {{DNN}} Model with {{Multi-head 3D Rotation}} and {{Time Series Feature Extraction}} for {{IMU-based Human Activity Recognition}}},
+  shorttitle  = {{{rTsfNet}}},
+  author      = {Enokibori, Yu},
+  date        = {2024-02-07},
+  eprint      = {2310.19283},
+  eprinttype  = {arXiv},
+  eprintclass = {cs.HC},
+  doi         = {10.48550/arXiv.2310.19283},
+  url         = {http://arxiv.org/abs/2310.19283},
+  urldate     = {2026-05-29},
+  abstract    = {Although many deep learning (DL) algorithms have been proposed for the IMU-based HAR domain, traditional machine learning that utilizes handcrafted time series features (TSFs) still often performs well. It is not rare that combinations among DL and TSFs show better accuracy than DL-only approaches. However, there is a problem with time series features in IMU-based HAR. The amount of derived features can vary greatly depending on the method used to select the 3D basis. Fortunately, DL's strengths include capturing the features of input data and adaptively deriving parameters. Thus, as a new DNN model for IMU-based human activity recognition (HAR), this paper proposes rTsfNet, a DNN model with Multi-head 3D Rotation and Time Series Feature Extraction. rTsfNet automatically selects 3D bases from which features should be derived by extracting 3D rotation parameters within the DNN. Then, time series features (TSFs), based on many researchers' wisdom, are derived to achieve HAR using MLP. Although rTsfNet is a model that does not use CNN, it achieved higher accuracy than existing models under well-managed benchmark conditions and multiple datasets: UCI HAR, PAMAP2, Daphnet, and OPPORTUNITY, all of which target different activities.},
+  langid      = {english},
+  pubstate    = {prepublished},
+  keywords    = {Computer Science - Human-Computer Interaction,Computer Science - Machine Learning},
+  file        = {/home/drabart/Zotero/storage/53SLHYBQ/Enokibori - 2024 - rTsfNet a DNN model with Multi-head 3D Rotation and Time Series Feature Extraction for IMU-based Hu.pdf}
+}
+
+@article{suwannaphongOptimisingTinyMLQuantization2025,
+  title        = {Optimising {{TinyML}} with Quantization and Distillation of Transformer and Mamba Models for Indoor Localisation on Edge Devices},
+  author       = {Suwannaphong, Thanaphon and Jovan, Ferdian and Craddock, Ian and McConville, Ryan},
+  date         = {2025-03-24},
+  journaltitle = {Scientific Reports},
+  shortjournal = {Sci Rep},
+  volume       = {15},
+  number       = {1},
+  pages        = {10081},
+  publisher    = {Nature Publishing Group},
+  issn         = {2045-2322},
+  doi          = {10.1038/s41598-025-94205-9},
+  url          = {https://www.nature.com/articles/s41598-025-94205-9},
+  urldate      = {2026-04-21},
+  abstract     = {This paper proposes small and efficient machine learning models (TinyML) for resource-constrained edge devices, specifically for on-device indoor localisation. Typical approaches for indoor localisation rely on centralised remote processing of data transmitted from lower powered devices such as wearables. However, there are several benefits for moving this to the edge device itself, including increased battery life, enhanced privacy, reduced latency and lowered operational costs, all of which are key for common applications such as health monitoring. The work focuses on model compression techniques, including quantization and knowledge distillation, to significantly reduce the model size while maintaining high predictive performance. We base our work on a large state-of-the-art transformer-based model and seek to deploy it within low-power MCUs. We also propose a state-space-based architecture using Mamba as a more compact alternative to the transformer. Our results show that the quantized transformer model performs well within a 64 KB RAM constraint, achieving an effective balance between model size and localisation precision. Additionally, the compact Mamba model has strong performance under even tighter constraints, such as a 32 KB of RAM, without the need for model compression, making it a viable option for more resource-limited environments. We demonstrate that, through our framework, it is feasible to deploy advanced indoor localisation models onto low-power MCUs with restricted memory limitations. The application of these TinyML models in healthcare has the potential to revolutionize patient monitoring by providing accurate, real-time location data while minimising power consumption, increasing data privacy, improving latency and reducing infrastructure costs.},
+  langid       = {english},
+  keywords     = {Biomedical engineering,Health services},
+  file         = {/home/drabart/Zotero/storage/CGUS7LTZ/Suwannaphong et al. - 2025 - Optimising TinyML with quantization and distillation of transformer and mamba models for indoor loca.pdf}
+}
+
+
 @inproceedings{dokicInferenceSpeedQuantisation2020,
   title      = {Inference Speed and Quantisation of Neural Networks with {{TensorFlow Lite}} for {{Microcontrollers}} Framework},
   booktitle  = {2020 5th {{South-East Europe Design Automation}}, {{Computer Engineering}}, {{Computer Networks}} and {{Social Media Conference}} ({{SEEDA-CECNSM}})},

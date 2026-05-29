@@ -1,40 +1,37 @@
 \section{Methodology}
 \label{sec:methodology}
 
-This section should describe the experimental framework and explain how the research question is investigated.
-
 \subsection{Dataset and Preprocessing}
 
-Describe:
-\begin{itemize}
-  \item Dataset selection
-\end{itemize}
+There exist many different datasets that have been used and demosntrated to be viable for TinyML applications. They are usually based on some kind of sensor data, such as audio, video or accelerometer data. For this work I decided to use two datasets: the Human Activity Recognition (HAR) dataset \cite{anguitaPublicDomainDataset2013} and the Google Speech Commands dataset \cite{speechcommandsv2}.
+
+They are chosen because of their popularity in the TinyML community, and because they represent two different types of data (accelerometer and audio). It also allows us to create some kind of comparison to the previous work, especially the MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} which also uses those datasets.
+
+The HAR dataset consists of recordings of volunteers performing activities of daily living while carrying a waist-mounted smartphone with embedded inertial sensors. The data is already heavily preprocessed into 561 features. For the Mamba architecture following the previous work, I pad this input to 570 features, and split them into 10 time steps of 57 features each. State-of-the-art models can achieve nearly 98\% accuracy on this dataset \cite{enokiboriRTsfNetDNNModel2024}.
+
+For the Google Speech Commands dataset, we preprocess the audio data into Mel-frequency cepstral coefficients (MFCCs), which are commonly used features for audio classification tasks. We extract 40 MFCC features for every time step, which results in 51 time steps with 40 features each. While some implementations choose to reduce the number of classed from the original 35 to 10, I decided to keep all 35 classes, because the Mamba architecture is designed to handle long sequences, and it allows us to test the limits of the architecture in a more challenging setting. State-of-the-art models can achieve around 96\% accuracy on this dataset \cite{wangEfficientSpeechCommand}.
 
 \subsection{Experimental Design}
 
-Describe:
-\begin{itemize}
-  \item Quantization strategies
-  \item Memory optimization strategies
-  \item Ways of measuring used memory
-  \item Testing strategies and reliability
-  \item Repeated runs and statistical stability
-\end{itemize}
+For the experimental design, it is important to evaluate the impact of different parts of the deployment pipeline. This includes the model architecture, the optimization strategies, and the deployment choices. It is also important to measure both memory usage and latency, as they are both critical for TinyML applications.
+
+The main goal is to be able to measure the peak memory usage and latency of the model during inference on a microcontroller. This can be challenging for an embedded device, but TFML provides tools for this. For memory usage, we can use the TFML Memory Recorder. It allows us to measure the peak memory of the model itself, as well as the split between permamently allocated and temporary memory. For latency, we created a modified version of the default TFML profiler. It allows us to measure the total time taken for inference, as well as the time taken for each operation type. This allows us to identify bottlenecks in the inference process and understand how different optimizations impact latency.
+
+For testing accuracy we run the model on the entire test set of each dataset while the model is on the PC where the training and optimization is done. We do this both with the PyTorch implementation, as well as after the conversion to TFML, to make sure that the conversion process does not introduce any significant accuracy degradation. The accuracy is also measured after the model is quantized, to check what is the impact of quantization on the model's performance.
+
+We also test accuracy of the model on the microcontroller. Because of the limited resources of the microcontroller, we cannot run the entire test set on it. Instead, we run a subset of 50 samples from the test set to ensure that the accuracy is not compromised by the final C++ implementation.
 
 \subsection{Model Architecture}
 
-Describe:
-\begin{itemize}
-  \item Changes made to the original
-  \item Hyperparameter choices
-\end{itemize}
+As in this work we do not focus on investigating the hyperparameters of the Mamba architecture, we use the same architecture as the MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}. This allows us to have a close comparison to the previous work, and to focus on the deployment and optimization strategies.
+
+The architecture consists of a fully connected input layer, a single Mamba block, average pooling layer, and a fully connected output layer. The Mamba block input is of size 64, and the expansion ratio is 2.
+
+As deployment of the original Mamba implementation is not possible for TFLM, because of the custom GPU kernels it uses, we re-implemented the architecture in PyTorch. This allows us to have a more flexible deployment pipeline, and to be able to make changes to the architecture and optimizations more easily.
+We do this by altering the activation functions, as well as reducing the amount of exponentiation operations used.
 
 \subsection{Deployment Optimization}
 
-Describe:
-\begin{itemize}
-  \item Deployment choices
-  \item INT8, INT4 quantization
-  \item Quantization-aware training
-  \item Latency benchmarking
-\end{itemize}
+For the deployment optimization, we focus on quantization, as it is one of the most common and effective optimization strategies for TinyML applications. We evaluate INT8 weights and activations quantization.
+
+Because of the lack of any looping mechanism in TFLM, the SSM implementation is unrolled by default. This causes the model size to grow linearly with the sequence length, which is an issue for the larger sequence length of the Speech Commands dataset. To mitigate this, we split the deployment model into 3 parts - pre-ssm, ssm step, and post-ssm. Then inside of the inference code we loop over the ssm step, which allows us to reuse the same weights for each time step and significantly reduce the model size. We also evaluate the impact of this on the HAR dataset, where both implementations are possible, to understand the trade-offs between the two approaches.
