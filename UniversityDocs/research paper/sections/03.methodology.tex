@@ -1,25 +1,34 @@
-\section{Methodology}
+\section{Proposed Mamba-MCU Optimizations}
 \label{sec:methodology}
 
-\subsection{Dataset and Preprocessing}
+\subsection{Embedded Deployment}
+\label{sec:embedded_deployment}
 
-There exist many different datasets that have been used and demosntrated to be viable for TinyML applications. They are usually based on some kind of sensor data, such as audio, video or accelerometer data. For this work I decided to use two datasets: the Human Activity Recognition (HAR) dataset \cite{anguitaPublicDomainDataset2013} and the Google Speech Commands dataset \cite{speechcommandsv2}.
+Deployment of machine learning models on microcontrollers while possible still poses some issues. MambaLite-Micro authors decided to pursue a path that would allow them to maintain exact same inference results as the trained PyTorch model, by extracting the weights from the model and hardcoding it in pure C. This approach, however, comes with many drawbacks, mainly that making any modifications to the model would need to also be implemented in C.
 
-They are chosen because of their popularity in the TinyML community, and because they represent two different types of data (accelerometer and audio). It also allows us to create some kind of comparison to the previous work, especially the MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} which also uses those datasets.
+For this paper we decided not to go that route, and instead choose an already existing tool for porting a model to a microcontroller. There have been many different frameworks created, notably TensorFlow Lite Micro (now being renamed to LiteRT) \cite{davidTensorFlowLiteMicro2021} and ExecuTorch \cite{executorch2026}. We have investigated both of them and found that the hardware agnostic workflow of TFLM gives us more freedom for experimentation, has better documentation and causes less issues for deployment. This approach allows us to avoid many intermediary forms of the neural network (notably we do not convert the model to ONNX at any point). This eliminates the conversion differences between the interpretations from being a factor in the experiments.
 
-The HAR dataset consists of recordings of volunteers performing activities of daily living while carrying a waist-mounted smartphone with embedded inertial sensors. The data is already heavily preprocessed into 561 features. For the Mamba architecture following the previous work, I pad this input to 570 features, and split them into 10 time steps of 57 features each. State-of-the-art models can achieve nearly 98\% accuracy on this dataset \cite{enokiboriRTsfNetDNNModel2024}.
+Additionally there have been many tools built into and around TFLM. We are using the tflm\_model\_transforms, which strips all redundant and debug data from the model, which allows for fair comparison between model sizes by reducing the model graph overhead. We also use AI Edge Quantizer, which allows for precise control over the quantization process, and it operates directly on the tflite model files.
 
-For the Google Speech Commands dataset, we preprocess the audio data into Mel-frequency cepstral coefficients (MFCCs), which are commonly used features for audio classification tasks. We extract 40 MFCC features for every time step, which results in 51 time steps with 40 features each. While some implementations choose to reduce the number of classed from the original 35 to 10, I decided to keep all 35 classes, because the Mamba architecture is designed to handle long sequences, and it allows us to test the limits of the architecture in a more challenging setting. State-of-the-art models can achieve around 96\% accuracy on this dataset \cite{wangEfficientSpeechCommand}.
+We also looked into other deployment options before deciding on the final one. The most interesting ones are Brevitas \cite{brevitas} (also used by FEMBA) and Torchao \cite{orTorchAOPyTorchNativeTrainingtoServing2025}. They both allow for quantization to be done on the PyTorch form of the model, and both of them allow for Quantization Aware Training, with the Brevitas additionally allowing for bit width quantization down to 1. In the final implementation we decided to not use them because of the need for kernel fusion that would arise after the QAT, which would be difficult to achieve efficiently for microcontrollers.
 
-\subsection{Experimental Design}
+Because of time constraints of this project we also implemented and tested the models only on the ESP32 (\autoref{fig:esp32}) family of microcontrollers (ESP32, and ESP32S3). This was done using esp-tflite-micro, which is a vendor specific implementation of the TFLM. We decided against using a vendor specific deployment pipeline, such as ESP-DL or STM32Cube.AI, to make the results not be bound to only one MCU platform.
 
-For the experimental design, it is important to evaluate the impact of different parts of the deployment pipeline. This includes the model architecture, the optimization strategies, and the deployment choices. It is also important to measure both memory usage and latency, as they are both critical for TinyML applications.
+\begin{figure}
+  \centering
+  \includegraphics[width=0.5\linewidth]{assets/esp32.jpg}
+  \caption{Photo of an ESP32S3 with ICS43434 microphone module attached}
+  \label{fig:esp32}
+\end{figure}
 
-The main goal is to be able to measure the peak memory usage and latency of the model during inference on a microcontroller. This can be challenging for an embedded device, but TFML provides tools for this. For memory usage, we can use the TFML Memory Recorder. It allows us to measure the peak memory of the model itself, as well as the split between permamently allocated and temporary memory. For latency, we created a modified version of the default TFML profiler. It allows us to measure the total time taken for inference, as well as the time taken for each operation type. This allows us to identify bottlenecks in the inference process and understand how different optimizations impact latency.
+\subsection{Model Architecture}
 
-For testing accuracy we run the model on the entire test set of each dataset while the model is on the PC where the training and optimization is done. We do this both with the PyTorch implementation, as well as after the conversion to TFML, to make sure that the conversion process does not introduce any significant accuracy degradation. The accuracy is also measured after the model is quantized, to check what is the impact of quantization on the model's performance.
+As in this work we do not focus on investigating the hyperparameters of the Mamba architecture, we use the same architecture as the MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}. This allows us to have a close comparison to the previous work, and to focus on the deployment and optimization strategies.
 
-We also test accuracy of the model on the microcontroller. Because of the limited resources of the microcontroller, we cannot run the entire test set on it. Instead, we run a subset of 50 samples from the test set to ensure that the accuracy is not compromised by the final C++ implementation.
+The architecture consists of a fully connected input layer, a single Mamba block, average pooling layer, and a fully connected output layer. The Mamba block input is of size 64, and the expansion ratio is 2.
+
+As deployment of the original Mamba implementation is not possible for TFLM, because of the custom GPU kernels it uses, we re-implemented the architecture in PyTorch. This allows us to have a more flexible deployment pipeline, and to be able to make changes to the architecture and optimizations more easily.
+We do this by altering the activation functions, as well as reducing the amount of exponentiation operations used.
 
 \subsection{Model Architecture}
 
