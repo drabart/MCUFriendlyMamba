@@ -1,0 +1,44 @@
+menu "Example Configuration"
+
+    menu "I2S MEMS MIC Configuration"
+
+        config EXAMPLE_SAMPLE_RATE
+            int "Audio Sample Rate"
+            default 16000
+            help
+                Set the audio sample rate frequency. For ICS43434, typically 16000 or 48000 Hz.
+
+        config EXAMPLE_BIT_SAMPLE
+            int "Audio Bit Sample"
+            default 16
+            help
+                Define the number of bits for each sample. Default 16 bits per sample.
+
+        config EXAMPLE_I2S_DATA_GPIO
+            int "I2S Data GPIO"
+            default 5
+            help
+                Set the GPIO number used for transmitting/receiving data from I2S.
+
+        config EXAMPLE_I2S_CLK_GPIO
+            int "I2S Clock GPIO"
+            default 4
+            help
+                Set the GPIO number used for the clock line from I2S.
+
+        config EXAMPLE_I2S_WS_GPIO
+            int "I2S Word Select (WS/LRCK) GPIO"
+            default 45
+            help
+                Set the GPIO number used for the word select/LRCK line from I2S.
+                Required for standard I2S microphones like ICS43434.
+
+    endmenu
+
+    config EXAMPLE_REC_TIME
+        int "Example Recording Time in Seconds"
+        default 15
+        help
+            Set the time for recording audio in seconds.
+
+endmenu
