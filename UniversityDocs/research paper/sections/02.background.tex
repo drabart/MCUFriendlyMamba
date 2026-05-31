@@ -15,9 +15,15 @@ Besides quantization, other common optimization strategies    include pruning, k
 
 \subsection{Mamba architecture}
 
-The Mamba architecture \cite{guMambaLinearTimeSequence2024} is a recently new architecture proposition. Its main innovation is combining Convolutional Neural Network with Recurrent Neural Network ideas. This design allows Mamba to capture long-range dependencies while maintaining a smaller memory footprint than Transformers.
+The Mamba architecture \cite{guMambaLinearTimeSequence2024} is a recently new architecture proposition. Its main innovation is combining Convolutional Neural Network with Recurrent Neural Network ideas. This design allows Mamba to capture long-range dependencies while maintaining a smaller memory footprint than Transformers. A diagram showcasing this block can be seen on \autoref{fig:mamba}.
 
-Its main building block is the Selective State-Space Model (S6) layer, which is intended to capture long-range dependencies in sequences while avoiding the quadratic complexity of attention. This layer is explicidly designed to break the standard Linear Time-Invariant (LTI) bottleneck of RNNs, which limits their ability to capture long-range dependencies. By using SSMs, Mamba can achieve strong performance on long-context tasks while maintaining a smaller memory footprint than Transformers. It is based around the standard SSM formulation:
+\begin{figure}[ht]
+  \includegraphics[width=\linewidth]{assets/top_level_mamba.png}
+  \caption{Diagram of the Mamba block}
+  \label{fig:mamba}
+\end{figure}
+
+Its main building block is the Selective State-Space Model (S6) layer, which is intended to capture long-range dependencies in sequences while avoiding the quadratic complexity of attention. This layer is explicitly designed to break the standard Linear Time-Invariant (LTI) bottleneck of RNNs, which limits their ability to capture long-range dependencies. By using SSMs, Mamba can achieve strong performance on long-context tasks while maintaining a smaller memory footprint than Transformers. It is based around the standard SSM formulation:
 
 $$
 \begin{aligned}

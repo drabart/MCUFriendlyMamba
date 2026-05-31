@@ -2,7 +2,7 @@
 #define USE_QUANTIZED_MODEL 1
 
 // Set to 1 to print allocator and profiler details after each model step.
-#define ENABLE_MODEL_DEBUG_PRINTS 0
+#define ENABLE_MODEL_DEBUG_PRINTS 1
 
 #include "split_model_kws_inference.h"
 
@@ -75,7 +75,7 @@ constexpr int kPostSSMInputSize = kYAllSize + kPreSSMGateSize;  // 6528 + 6528 =
 constexpr int kOutputLength = kNumClasses;
 
 // ========== Shared Memory ==========
-constexpr int kTensorArenaSize = 60 * 1024;  // 60 KB shared arena
+constexpr int kTensorArenaSize = 100 * 1024;  // 100 KB shared arena
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Interpreter pointer (only one used at a time)
@@ -159,6 +159,11 @@ static bool create_interpreter(
     if (model->version() != TFLITE_SCHEMA_VERSION) {
         printf("ERROR: %s model version mismatch!\n", model_name);
         return false;
+    }
+
+    if (current_interpreter != nullptr) {
+        delete current_interpreter;
+        current_interpreter = nullptr;
     }
     
     // Initialize resolver once

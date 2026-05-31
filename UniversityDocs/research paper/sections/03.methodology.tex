@@ -8,7 +8,13 @@ Deployment of machine learning models on microcontrollers while possible still p
 
 For this paper we decided not to go that route, and instead choose an already existing tool for porting a model to a microcontroller. There have been many different frameworks created, notably TensorFlow Lite Micro (now being renamed to LiteRT) \cite{davidTensorFlowLiteMicro2021} and ExecuTorch \cite{executorch2026}. We have investigated both of them and found that the hardware agnostic workflow of TFLM gives us more freedom for experimentation, has better documentation and causes less issues for deployment. This approach allows us to avoid many intermediary forms of the neural network (notably we do not convert the model to ONNX at any point). This eliminates the conversion differences between the interpretations from being a factor in the experiments.
 
-Additionally there have been many tools built into and around TFLM. We are using the tflm\_model\_transforms, which strips all redundant and debug data from the model, which allows for fair comparison between model sizes by reducing the model graph overhead. We also use AI Edge Quantizer, which allows for precise control over the quantization process, and it operates directly on the tflite model files.
+Additionally there have been many tools built into and around TFLM. We are using the tflm\_model\_transforms, which strips all redundant and debug data from the model, which allows for fair comparison between model sizes by reducing the model graph overhead. We also use AI Edge Quantizer, which allows for precise control over the quantization process, and it operates directly on the tflite model files. The different deployment options can be seen on \autoref{fig:deployment}
+
+\begin{figure}[ht]
+  \includegraphics[width=\linewidth]{assets/deployment_diagram.drawio.png}
+  \caption{Diagram of the deployment steps and some options for a TinyML}
+  \label{fig:deployment}
+\end{figure}
 
 We also looked into other deployment options before deciding on the final one. The most interesting ones are Brevitas \cite{brevitas} (also used by FEMBA) and Torchao \cite{orTorchAOPyTorchNativeTrainingtoServing2025}. They both allow for quantization to be done on the PyTorch form of the model, and both of them allow for Quantization Aware Training, with the Brevitas additionally allowing for bit width quantization down to 1. In the final implementation we decided to not use them because of the need for kernel fusion that would arise after the QAT, which would be difficult to achieve efficiently for microcontrollers.
 
