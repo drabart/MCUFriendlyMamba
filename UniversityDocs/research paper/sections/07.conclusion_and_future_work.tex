@@ -1,21 +1,12 @@
 \section{Conclusions and Future Work}
 \label{sec:conclusion}
 
-This section should directly answer the research question and summarize the main findings.
+This paper examined how Mamba can be adapted and optimized for inference on microcontrollers. Our experiments support three concise findings:
 
-The conclusion should:
 \begin{itemize}
-  \item Restate the research objective
-  \item Summarize the most important findings
-  \item Explain the memory limitations of Mamba models on MCUs
-  \item Highlight key trade-offs identified in the experiments
+  \item Deploying via TFLM (with model-graph stripping) substantially reduces peak RAM compared to the C-based MambaLite-Micro workflow (roughly a 75\% reduction in our runs).
+  \item Memory vs. latency trade-off: INT8 quantization cuts peak RAM by about $\approx33\%$ and model file size by $\approx60\%$, but on the tested ESP32-class hardware it increased latency because efficient INT8 vector instructions are lacking.
+  \item Split vs. full deployment: splitting into pre-SSM / SSM-step / post-SSM lowers peak RAM and permits longer sequences, but increases sensitivity to static quantization and complicates the runtime pipeline.
 \end{itemize}
 
-Future work may discuss:
-\begin{itemize}
-  \item Other memory optimization strategies
-  \item More standardized deployment (LiteRT custom operation)
-  \item Energy-aware optimization
-\end{itemize}
-
-The conclusion should remain concise and readable as a standalone section.
+Taken together, Mamba is a strong candidate for TinyML on MCUs when memory optimizations are prioritized, but real-world latency depends heavily on hardware and kernel support. A next step that could be pursued is implementing a custom, quantized Selective State-Space Model kernel for TFLM and running targeted microbenchmarks across MCU families to guide low-level optimizations. We also recommend systematically evaluating pruning methods (structured and unstructured) to reduce parameter count and memory footprint, and combining those experiments with Quantization-Aware Training and lower-bit formats.

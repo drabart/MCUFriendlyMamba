@@ -1,32 +1,34 @@
 \section{Responsible Research}
 \label{sec:responsible_research}
 
+This section discusses ethical considerations, reproducibility practices, and how AI tools were used during the research. It documents dataset and code licensing, replication steps, and potential misuse risks and mitigations.
+
 \subsection{Ethical Considerations}
 
-While this work does not involve third party participants, it's also important to consider its impacts. The main focus of this work is to allow running more efficient machine learning on microcontrollers. Spreading the TinyML ideas can help move some of the computations from datacenters and powerful devices to low-powered ones. This in turn helps the inevitable transition towards wide spread usage of ML be more sustainable.
+While this work does not involve third-party participants, it is important to consider potential impacts. The main focus is enabling more efficient machine learning on microcontrollers. Shifting some computation from datacenters to low-power devices can improve sustainability.
 
-On the other hand being able to run video and audio classification could be used for malicious purposes such as invading someone's privacy.
+On-device processing can cut cloud exposure and improve privacy by keeping raw data local, but it can also be misused (for example, for covert surveillance). Deployment should therefore consider safeguards, transparency, and appropriate governance.
 
 \subsection{Reproducibility}
 
-The datasets used in this research are publicly available. All of the software used in this research had licenses allowing for use in research and has been properly acknowledged.
+The datasets used in this research are publicly available, and all software used had licenses permitting research use and has been acknowledged.
 
-All the steps needed to replicate the findings from this paper have also documented. This includes the initial model training, conversion and quantization processes, as well as the way the model was benchmarked on the microcontroller. While full replication also requires the specific MCU, the one chosen for this research is widely available, and seen all over the TinyML field.
+We documented the steps needed to replicate the experiments, including model training, conversion, quantization, and microcontroller benchmarking. Full replication requires the specific MCU, but the ESP32 family used here is widely available in the TinyML community.
 
-We put utmost care to ensure the metrics are accurate and can be compared between each other and are relevant when comparing them to other works. The same profiler has been used for all experimental runs, and all results have been annotated with which version of the MCU was used to gather them.
+We used a single profiler consistently across runs and annotated results with the MCU variant used to improve comparability.
 
-The entire code for the project is publicly available. It also contains instructions on how to run it, and what libraries versions have been used to allow for easy replication setup creation.
+The project code is publicly available and includes instructions and library versions to facilitate replication.
 
 \subsection{Use of AI Tools}
 
-Artificial intelligence tools were used as supportive instruments during the development of this work. Their use was limited to writing parts of the code, assisting with debugging, and refining written text for clarity and grammatical correctness. \
+AI tools were used as supportive instruments during development. Their use was limited to writing helper scripts, assisting with debugging, and improving clarity and grammar in written text.
 
 Specifically, AI assistance was used for:
 \begin{itemize}
-  \item Writing scripts to setup the experiment pipeline
+  \item Writing scripts to set up the experiment pipeline
   \item Debugging implementation issues in experimental code
   \item Improving clarity and structure of written explanations
-  \item Assisting with formatting and consistency in LaTeX writing
+  \item Assisting with LaTeX formatting and consistency
 \end{itemize}
 
 All scientific decisions, experimental design choices, and interpretation of results were made independently by the author. AI tools were not used to generate or alter experimental outcomes, results, or conclusions.

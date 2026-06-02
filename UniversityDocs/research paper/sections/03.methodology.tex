@@ -1,14 +1,16 @@
 \section{Proposed Mamba-MCU Optimizations}
 \label{sec:methodology}
 
+This section presents the deployment choices and architecture adaptations designed to fit Mamba on microcontrollers. We first justify the chosen toolchain and hardware, then describe the model reimplementation and the optimizations evaluated (quantization, looped SSM, activation simplifications).
+
 \subsection{Embedded Deployment}
 \label{sec:embedded_deployment}
 
-Deployment of machine learning models on microcontrollers while possible still poses some issues. MambaLite-Micro authors decided to pursue a path that would allow them to maintain exact same inference results as the trained PyTorch model, by extracting the weights from the model and hardcoding it in pure C. This approach, however, comes with many drawbacks, mainly that making any modifications to the model would need to also be implemented in C.
+Deployment of machine learning models on microcontrollers, while feasible, still presents challenges. The MambaLite-Micro authors chose a path that preserves exact PyTorch inference results by extracting weights and hardcoding them in C. This approach preserves compatibility but makes architecture changes and further optimizations cumbersome, since any model modification requires C changes.
 
-For this paper we decided not to go that route, and instead choose an already existing tool for porting a model to a microcontroller. There have been many different frameworks created, notably TensorFlow Lite Micro (now being renamed to LiteRT) \cite{davidTensorFlowLiteMicro2021} and ExecuTorch \cite{executorch2026}. We have investigated both of them and found that the hardware agnostic workflow of TFLM gives us more freedom for experimentation, has better documentation and causes less issues for deployment. This approach allows us to avoid many intermediary forms of the neural network (notably we do not convert the model to ONNX at any point). This eliminates the conversion differences between the interpretations from being a factor in the experiments.
+For this paper we decided not to take that route and instead selected an existing model-porting tool. We investigated frameworks such as TensorFlow Lite for Microcontrollers (TFLM, also referred to as LiteRT) \cite{davidTensorFlowLiteMicro2021} and ExecuTorch \cite{executorch2026}. The hardware-agnostic workflow of TFLM provided more flexibility for experimentation, better documentation, and fewer deployment issues. By using TFLM we avoid additional intermediary formats (for example, we do not convert to ONNX), removing conversion differences as a factor in the experiments.
 
-Additionally there have been many tools built into and around TFLM. We are using the tflm\_model\_transforms, which strips all redundant and debug data from the model, which allows for fair comparison between model sizes by reducing the model graph overhead. We also use AI Edge Quantizer, which allows for precise control over the quantization process, and it operates directly on the tflite model files. The different deployment options can be seen on \autoref{fig:deployment}
+There are several tools built into and around TFLM. We use `tflm\_model\_transforms` to strip redundant and debug data from the model, enabling fairer comparisons of model sizes by reducing graph overhead. We also use the AI Edge Quantizer, which provides precise control over quantization and operates directly on TFLite model files. The different deployment options are illustrated in \autoref{fig:deployment}.
 
 \begin{figure}[ht]
   \includegraphics[width=\linewidth]{assets/deployment_diagram.drawio.png}
@@ -16,11 +18,11 @@ Additionally there have been many tools built into and around TFLM. We are using
   \label{fig:deployment}
 \end{figure}
 
-We also looked into other deployment options before deciding on the final one. The most interesting ones are Brevitas \cite{brevitas} (also used by FEMBA) and Torchao \cite{orTorchAOPyTorchNativeTrainingtoServing2025}. They both allow for quantization to be done on the PyTorch form of the model, and both of them allow for Quantization Aware Training, with the Brevitas additionally allowing for bit width quantization down to 1. In the final implementation we decided to not use them because of the need for kernel fusion that would arise after the QAT, which would be difficult to achieve efficiently for microcontrollers.
+We also considered other deployment options such as Brevitas \cite{brevitas} (used by FEMBA) and TorchAO \cite{orTorchAOPyTorchNativeTrainingtoServing2025}, which support quantization on PyTorch models and Quantization-Aware Training (QAT). Brevitas can target very low bit-widths. We did not use these tools in the final implementation because QAT often requires kernel fusion that is difficult to achieve efficiently on microcontrollers.
 
-Because of time constraints of this project we also implemented and tested the models only on the ESP32 (\autoref{fig:esp32}) family of microcontrollers (ESP32, and ESP32S3). This was done using esp-tflite-micro, which is a vendor specific implementation of the TFLM. We decided against using a vendor specific deployment pipeline, such as ESP-DL or STM32Cube.AI, to make the results not be bound to only one MCU platform.
+Due to time constraints we implemented and tested models only on the ESP32 (\autoref{fig:esp32}) family of microcontrollers (ESP32 and ESP32-S3) using `esp-tflite-micro`, a vendor-specific implementation of TFLM. We avoided vendor-specific pipelines such as ESP-DL or STM32Cube.AI so results would not be bound to a single MCU platform.
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
   \includegraphics[width=0.5\linewidth]{assets/esp32.jpg}
   \caption{Photo of an ESP32S3 with ICS43434 microphone module attached}
@@ -29,24 +31,12 @@ Because of time constraints of this project we also implemented and tested the m
 
 \subsection{Model Architecture}
 
-As in this work we do not focus on investigating the hyperparameters of the Mamba architecture, we use the same architecture as the MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}. This allows us to have a close comparison to the previous work, and to focus on the deployment and optimization strategies.
+We do not explore extensive hyperparameter search in this work; instead, we adopt the MambaLite-Micro architecture \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} so comparisons remain meaningful and our effort can focus on deployment and optimization. The architecture comprises a fully connected input layer, a single Mamba block, an average-pooling layer, and a fully connected output layer. The Mamba block input size is 64 with an expansion ratio of 2.
 
-The architecture consists of a fully connected input layer, a single Mamba block, average pooling layer, and a fully connected output layer. The Mamba block input is of size 64, and the expansion ratio is 2.
-
-As deployment of the original Mamba implementation is not possible for TFLM, because of the custom GPU kernels it uses, we re-implemented the architecture in PyTorch. This allows us to have a more flexible deployment pipeline, and to be able to make changes to the architecture and optimizations more easily.
-We do this by altering the activation functions, as well as reducing the amount of exponentiation operations used.
-
-\subsection{Model Architecture}
-
-As in this work we do not focus on investigating the hyperparameters of the Mamba architecture, we use the same architecture as the MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}. This allows us to have a close comparison to the previous work, and to focus on the deployment and optimization strategies.
-
-The architecture consists of a fully connected input layer, a single Mamba block, average pooling layer, and a fully connected output layer. The Mamba block input is of size 64, and the expansion ratio is 2.
-
-As deployment of the original Mamba implementation is not possible for TFLM, because of the custom GPU kernels it uses, we re-implemented the architecture in PyTorch. This allows us to have a more flexible deployment pipeline, and to be able to make changes to the architecture and optimizations more easily.
-We do this by altering the activation functions, as well as reducing the amount of exponentiation operations used.
+Because the original Mamba implementation relies on custom GPU kernels not available in TFLM, we re-implemented the architecture in PyTorch. This gives a more flexible deployment pipeline and makes it easier to modify activations and reduce expensive exponentiation operations prior to conversion.
 
 \subsection{Deployment Optimization}
 
-For the deployment optimization, we focus on quantization, as it is one of the most common and effective optimization strategies for TinyML applications. We evaluate INT8 weights and activations quantization.
+For deployment optimization we focus primarily on quantization, evaluating INT8 weight and activation quantization.
 
-Because of the lack of any looping mechanism in TFLM, the SSM implementation is unrolled by default. This causes the model size to grow linearly with the sequence length, which is an issue for the larger sequence length of the Speech Commands dataset. To mitigate this, we split the deployment model into 3 parts - pre-ssm, ssm step, and post-ssm. Then inside of the inference code we loop over the ssm step, which allows us to reuse the same weights for each time step and significantly reduce the model size. We also evaluate the impact of this on the HAR dataset, where both implementations are possible, to understand the trade-offs between the two approaches.
+Because TFLM lacks a general looping mechanism, the SSM implementation is unrolled by default, causing model size to grow linearly with sequence length. This is problematic for longer sequences (for example, the Speech Commands dataset). To mitigate this, we split the deployment model into three parts: pre-SSM, SSM step, and post-SSM. The inference code loops over the SSM step, reusing the same weights for each time step and significantly reducing model size. We compare both unrolled and looped implementations on the HAR dataset to study trade-offs.

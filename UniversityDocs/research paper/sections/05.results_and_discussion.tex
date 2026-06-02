@@ -1,11 +1,13 @@
 \section{Results and Discussion}
 \label{sec:results_and_discussion}
 
+This section presents experimental results for accuracy, model sizes, latency, and memory usage, followed by interpretation and discussion of practical trade-offs when deploying Mamba on MCUs.
+
 \subsection{Model accuracy}
 
-We first start with running the training process on a PC. This is done with a self written implementation of Mamba block in PyTorch. We manage to achieve 98.6\% validation set accuracy for the Human Activity Recognition dataset. For the Keyword Spotting task we achieve 90.09\% validation set accuracy with a similarly sized model.
+We first trained models on a development PC using a custom PyTorch implementation of the Mamba block. Training produced validation accuracies of 98.6\% for HAR and 90.09\% for the KWS task.
 
-Then we convert the accuracy after conversion to a tflite representation, and after quantizing it. The results of it can be seen in \autoref{tab:accuracy-results}. Those are measured for both the original single inference model, as well as, the model that has been split in 3 parts.
+We then converted the models to TFLite and evaluated accuracy before and after quantization. Results are shown in \autoref{tab:accuracy-results} for both the original (full) model and the split model.
 
 % Accuracy table
 \begin{table}[ht]
@@ -26,7 +28,7 @@ Then we convert the accuracy after conversion to a tflite representation, and af
   \end{tabular}
 \end{table}
 
-Additionally we measure the output file sizes after each step of optimization (\autoref{tab:size-results}). While the raw model size is rarely a bottleneck, it is still often used for comparisons of model sizes. We found out that this comparison can be very misleading when working with model formats that do not contain pure weights. The overhead of quantization and dequantization operations being held in the inference graph can even outweigh the size reduction achieved by reducing the size of the model tensors. Moreover, the tflite format by default preserves file, class and variable names. Unless they are stripped out by a tool like tflm\_model\_transforms they can severely distort the perceived model size (in our case it removes up to 30\% of the model size).
+We also measured output file sizes after each optimization step (\autoref{tab:size-results}). Raw file size can be misleading for formats that include graph metadata in addition to raw weights: quantize/dequantize operators and preserved names can outweigh tensor-size savings. Using `tflm\_model\_transforms` to strip debug and name metadata reduced file size by up to ~30\% in our experiments.
 
 % Model size table
 \begin{table}[ht]
@@ -47,7 +49,7 @@ Additionally we measure the output file sizes after each step of optimization (\
   \end{tabular}
 \end{table}
 
-It is often believed that storing the model externally is much slower than holding it in RAM. To test that we set up a simple test of summing elements in a large array that is stored in either DRAM or Flash memory of a microcontroller. We found out that contrary to a standard computer where accessing data from the next layer often increases the time taken by a factor of 10 to 50, the Flash on ESP32 was only 2.15 times slower for the array summing task. Moreover, the tflite micro framework copies all the relevant arrays from ROM to RAM on tensor initialization, so this slowdown should not be included in our benchmark even though the initial model file uses a const array, which gets put into Flash.
+It is often assumed that storing model data in flash is much slower than storing it in RAM. We measured a simple array-sum benchmark with data in DRAM versus flash on the ESP32 and found flash access ~2.15x slower for this task (far smaller than typical desktop disparities). Note that TFLM copies relevant arrays from ROM to RAM on tensor initialization, so this initial-copy overhead is separate from steady-state inference behavior.
 
 \subsection{Embedded Performance}
 
@@ -55,7 +57,7 @@ The next important metrics are the inference time (latency) and RAM usage on the
 
 % TODO test on ESP32S3
 
-While it's common to expect the quantized model to perform better in terms of latency because of the lack of floating point operations, for our TFLM Mamba models the opposite is true (\autoref{fig:latency}). The latency of the INT8 variants is over 2 times larger than the float models. This is mostly caused by the ESP32 not having hardware acceleration for vector int8 operations and causes each quantized multiplication to be performed using more than 10 int32 operations (addition, multiplication, bit shifts and comparisons). We also see that while the model split increases latency it is not large.
+Although quantized models are often faster due to reduced floating-point work, for our TFLM Mamba models the INT8 variants are slower (\autoref{fig:latency}). INT8 latency is over 2x larger than float in many cases. This is primarily because the ESP32 lacks hardware acceleration for vector int8 operations, so quantized multiplications are implemented via multiple 32-bit operations (adds, multiplies, bit shifts, comparisons). The model split increases latency slightly but not substantially.
 
 \begin{figure}[ht]
   \includegraphics[width=\linewidth]{assets/inference_time.png}
@@ -63,7 +65,7 @@ While it's common to expect the quantized model to perform better in terms of la
   \label{fig:latency}
 \end{figure}
 
-For the latency we are also able to measure impact of each operation type on the final inference time. This can be seen in \autoref{fig:ops_latency}. (TODO: get those graphs without the ReLU replacement)
+We measured per-operation latency breakdowns (\autoref{fig:ops_latency}).
 
 \begin{figure}[ht]
   \centering
@@ -86,7 +88,7 @@ For the latency we are also able to measure impact of each operation type on the
 
 % TODO fix the quantization between models
 
-The memory usage, however, is more what we had expected, and is significantly lower for the INT8 variants of the model (\autoref{fig:memory}). We also see that the the splitting of the model significantly reduces the RAM usage of the model. (TODO: for the split model there are 4 large buffers outside the tflm which are not yet included on the graph).
+Memory usage behaves as expected: INT8 variants require significantly less RAM (\autoref{fig:memory}). The model split also reduces peak RAM usage. (Note: the split model currently uses several large buffers outside the TFLM allocator that are not yet included in the reported graph.)
 
 \begin{figure}[ht]
   \includegraphics[width=\linewidth]{assets/memory_usage.png}
@@ -105,31 +107,27 @@ For the split models we are also able to measure peak memory by inference stage 
 \subsection{Discussion}
 \label{sec:discussion}
 
-We can see that the optimization techniques that we implemented help with the latency, while not introducing accuracy loss (TODO: graph for this).
-
-The quantization for embedded Mamba implementation is a viable option. While it reduces the accuracy, the decrease is minimal for the full HAR model at only 0.3\%. We also see that our proposed split model reacts worse to quantization. There could be many explanations for this behavior. Some potential causes are:
+The optimizations reduce memory at the cost of modest accuracy loss in some cases. Quantization is viable: for the full HAR model the accuracy drop is small (~0.3\%). The split model is more sensitive to quantization, possibly for reasons such as:
 
 \begin{itemize}
-  \item static quantization being able to achieve better fit for the unrolled loop
-  \item numerical error stacking up faster with our implementation of the SSM loop
+  \item static quantization achieving a better fit for the fully unrolled graph
+  \item numerical error accumulating more quickly in our SSM loop implementation
 \end{itemize}
 
-The unrolled loop allows the quantized to have different scales and zero points for different instances of the same operations, which we believe is the most probable cause for the better performance of the full model.
+The unrolled graph can use different scales and zero points for different instances of the same operation, which may explain why the full (unrolled) model performs better under static quantization.
 
-Our Mamba models, while far off the state of the art models have achieved very satisfactory results for accuracy. A very small model was able to achieve nearly 94\% on the HAR dataset, and nearly 89\% on the GCS dataset. This shows that the Mamba architecture has a lot of potential for general use models.
+Our Mamba models—though smaller than state-of-the-art large models—achieve satisfactory accuracy: nearly 94\% on HAR and ~89\% on KWS in the configurations tested, demonstrating Mamba's potential for compact tasks.
 
 We see however that the split of the model allows us to run more complex models, as we did not manage to run the KWS model without this operation. This was partially caused by the limitations of the TFLM, with the concatenate operation allowing only up to 10 vectors to be connected at once, while for KWS it would need to concatenate 51 time steps. A surprising outcome of the split was that it also reduces the peak memory usage of the model. This is most likely caused by the allocation style used by TFLM, which is based on a greedy algorithm, and we suspect the split was able to optimize this decision. If true, however, splitting might not always have the same effect.
 
-We can also notice that latency is in most part introduced by SUM, MUL, ADD, and EXP operations. Those are all part of the SSM layer. This shows that from latency point the State Space Model does not translate well into the TFLM. This is in part caused by it relying on the exponentiation, which is rarely efficient on microcontrollers. We believe that implementing a custom TFLM SSM kernel could drastically improve its performance. Unfortunately due to time constraints for this research we were unable to implement it.
+We observe that much of the latency arises from SUM, MUL, ADD, and EXP operations in the SSM layer. From a latency perspective, the SSM does not map efficiently to TFLM as-is, in part because of costly exponentiation on MCUs. Implementing a custom TFLM SSM kernel (possibly quantized) would likely yield substantial speedups; time constraints prevented us from implementing this in the current work.
 
 \subsection{Limitations}
 
-There are however many limitations in our work. Those are partially caused by lack of proper tooling made for deploying Mamba models, and the time constraints of this research.
+There are several limitations. Tooling for deploying Mamba on MCUs is immature, and time constraints limited our exploration.
 
-While we were able to experiment on 2 of the most popular TinyML datasets they do not cover all possible areas that a Mamba model could be used for. Especially we did not test it on any dataset involving image or video data, a task that Mamba has been demonstrated to be good at.
+We evaluated only two popular TinyML datasets, which do not cover use cases such as image/video tasks where Mamba may also be useful. We tested FLOAT32 and INT8 formats; exploring lower bit widths could be valuable but is currently limited by TFLM operator support.
 
-While we chose to only test models in FLOAT32 and INT8 formats, it might be worth to experiment with even lower bit widths. The main issue with them is the current lack of support in some of the TFLM operations.
+Results were gathered on a single MCU family (ESP32); different vendors' hardware acceleration choices may yield substantially different latency and performance characteristics.
 
-The results shown are also gathered from a single MCU family, ESP32. While we believe the findings should also mostly apply to all other microcontrollers, the latency could be drastically different because of the different hardware acceleration choices made by different vendors.
-
-It's also important to point out that while we aim to make the deployment easier with this research our split method goes strongly against that because of the need for model aware implementation in the inference code. This could be fixed by implementing the SSM as a custom kernel, which would in turn work similarly to us running this part of the model in a loop. The difficulty of correctly implementing it including allowing for this operation to be quantized, did not allow us to do it.
+Finally, our split approach complicates deployment because it requires model-aware inference code. Implementing the SSM as a custom, quantized TFLM kernel would preserve deployment simplicity while enabling the same memory/time trade-offs; we leave that for future work.
