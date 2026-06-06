@@ -1,8 +1,8 @@
 // Define to choose between quantized (int8) and float models
-#define USE_QUANTIZED_MODEL 1
+#define USE_QUANTIZED_MODEL 0
 
 // Set to 1 to print allocator and profiler details after each model step.
-#define ENABLE_MODEL_DEBUG_PRINTS 0
+#define ENABLE_MODEL_DEBUG_PRINTS 1
 
 #include "split_model_kws_inference.h"
 
@@ -259,6 +259,9 @@ void setup_split_model_inference() {
 }
 
 bool run_split_model_inference_raw(const float* input_data, float* output_logits) {
+#if ENABLE_MODEL_DEBUG_PRINTS
+    int64_t inference_start_time = esp_timer_get_time();
+#endif
     // ========== STAGE 1: PreSSM ==========
 #if USE_QUANTIZED_MODEL
     if (!create_interpreter(g_model_pre_ssm_int8_kws_model_data, "PreSSM")) {
@@ -396,6 +399,12 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     // Check stack
     uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
     printf("\nStack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark);
+    
+    // Print total inference time
+    int64_t inference_end_time = esp_timer_get_time();
+    int64_t total_inference_time_us = inference_end_time - inference_start_time;
+    float total_inference_time_ms = total_inference_time_us / 1000.0f;
+    printf("\nTotal Inference Time: %.2f ms (%.0f µs)\n", total_inference_time_ms, (float)total_inference_time_us);
 #endif
     
     return true;
