@@ -105,7 +105,7 @@ int8_t pre_ssm_gate[kPreSSMGateSize];             // Quantized gate input for po
 int8_t pre_ssm_state[kPreSSMStateSize];         // Quantized state input for step_ssm
 float y_all_float[kYAllSize];                    // Dequantized y_t outputs for post_ssm
 
-float pre_ssm_state_float[kPreSSMStateSize];     // Dequantized state output from pre_ssm
+// float pre_ssm_state_float[kPreSSMStateSize];     // Dequantized state output from pre_ssm
 // float pre_ssm_gate_float[kPreSSMGateSize];       // Dequantized gate output from pre_ssm
 #else
 float pre_ssm_state_float[kPreSSMStateSize];     // Dequantized state output from pre_ssm
@@ -265,7 +265,7 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     memcpy(pre_ssm_state, tflite::GetTensorData<int8_t>(pre_output_state), kPreSSMStateSize * sizeof(int8_t));
     memcpy(pre_ssm_gate, tflite::GetTensorData<int8_t>(pre_output_gate), kPreSSMGateSize * sizeof(int8_t));
 
-    dequantize_tensor_to_float(pre_output_state, pre_ssm_state_float, kPreSSMStateSize);
+    // dequantize_tensor_to_float(pre_output_state, pre_ssm_state_float, kPreSSMStateSize);
     // dequantize_tensor_to_float(pre_output_gate, pre_ssm_gate_float, kPreSSMGateSize);
 #else
     // Dequantize outputs to float for inter-stage communication
@@ -310,16 +310,16 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
 
     for (int t = 0; t < kNumTimesteps; t++) {
 #if USE_QUANTIZED_MODEL
-        quantize_float_to_tensor(&pre_ssm_state_float[t * kDInner], step_input_x, kDInner);
-        // for (int i = 0; i < kDInner; i++) {
-        //     float dequantized_value =
-        //         (pre_ssm_state[t * kDInner + i] - pre_ssm_state_zero_point) * pre_ssm_state_scale;
+        // quantize_float_to_tensor(&pre_ssm_state_float[t * kDInner], step_input_x, kDInner);
+        for (int i = 0; i < kDInner; i++) {
+            float dequantized_value =
+                (pre_ssm_state[t * kDInner + i] - pre_ssm_state_zero_point) * pre_ssm_state_scale;
             
-        //     int32_t q = static_cast<int32_t>(std::lround(dequantized_value / step_input_x->params.scale)) + step_input_x->params.zero_point;
-        //     // Clip to int8 range
-        //     q = std::max<int32_t>(-128, std::min<int32_t>(127, q));
-        //     tflite::GetTensorData<int8_t>(step_input_x)[i] = q;
-        // }
+            int32_t q = static_cast<int32_t>(std::lround(dequantized_value / step_input_x->params.scale)) + step_input_x->params.zero_point;
+            // Clip to int8 range
+            q = std::max<int32_t>(-128, std::min<int32_t>(127, q));
+            tflite::GetTensorData<int8_t>(step_input_x)[i] = q;
+        }
 #else
         // Re-quantize float buffers using StepSSM's input quantization parameters
         quantize_float_to_tensor(&pre_ssm_state_float[t * kDInner], step_input_x, kDInner);
