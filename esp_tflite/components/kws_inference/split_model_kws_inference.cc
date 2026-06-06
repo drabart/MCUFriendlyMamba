@@ -75,7 +75,7 @@ constexpr int kPostSSMInputSize = kYAllSize + kPreSSMGateSize;  // 6528 + 6528 =
 constexpr int kOutputLength = kNumClasses;
 
 // ========== Shared Memory ==========
-constexpr int kTensorArenaSize = 100 * 1024;  // 100 KB shared arena
+constexpr int kTensorArenaSize = 120 * 1024;
 uint8_t tensor_arena[kTensorArenaSize];
 
 // Interpreter pointer (only one used at a time)
@@ -95,29 +95,28 @@ static tflite::CustomProfiler<1024, 20> profiler;
 UBaseType_t uxHighWaterMark = 0;  // For stack checking
 #endif
 
-// ========== Inter-model Communication Buffers (float for proper quantization) ==========
+// ========== Inter-model Communication Buffers ==========
 #if USE_QUANTIZED_MODEL
+
 float pre_ssm_gate_scale = 0.0f;
 int32_t pre_ssm_gate_zero_point = 0;
 float pre_ssm_state_scale = 0.0f;
 int32_t pre_ssm_state_zero_point = 0;
-int8_t pre_ssm_gate[kPreSSMGateSize];             // Quantized gate input for post_ssm
-int8_t pre_ssm_state[kPreSSMStateSize];         // Quantized state input for step_ssm
+int8_t pre_ssm_gate[kPreSSMGateSize];
+int8_t pre_ssm_state[kPreSSMStateSize];
 
 float step_output_y_scale = 0.0f;
 int32_t step_output_y_zero_point = 0;
 
-// float y_all_float[kYAllSize];                    // Dequantized y_t outputs for post_ssm
 #else
-float pre_ssm_state_float[kPreSSMStateSize];     // Dequantized state output from pre_ssm
-float pre_ssm_gate_float[kPreSSMGateSize];       // Dequantized gate output from pre_ssm
-float hidden_state_float[kHiddenStateSize];      // Hidden state (float) for step_ssm
-float y_all_float[kYAllSize];                    // Dequantized y_t outputs
+
+float pre_ssm_state[kPreSSMStateSize];
+float pre_ssm_gate[kPreSSMGateSize]; 
+
 #endif
 }
 
-// Dequantize tensor output to float for inter-model communication
-static void dequantize_tensor_to_float(const TfLiteTensor* tensor, float* output, int size) {
+static void process_model_output(const TfLiteTensor* tensor, float* output, int size) {
 #if USE_QUANTIZED_MODEL
     const int8_t* tensor_data = tflite::GetTensorData<int8_t>(tensor);
     const float scale = tensor->params.scale;
@@ -131,8 +130,7 @@ static void dequantize_tensor_to_float(const TfLiteTensor* tensor, float* output
 #endif
 }
 
-// Quantize float data to tensor input (matching Python's quantization logic)
-static void quantize_float_to_tensor(const float* input, TfLiteTensor* tensor, int size) {
+static void process_model_input(const float* input, TfLiteTensor* tensor, int size) {
 #if USE_QUANTIZED_MODEL
     int8_t* tensor_data = tflite::GetTensorData<int8_t>(tensor);
     const float scale = tensor->params.scale;
@@ -271,15 +269,15 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     }
     
     TfLiteTensor* pre_input = current_interpreter->input(0);
-    quantize_float_to_tensor(input_data, pre_input, kInputLength);
+    process_model_input(input_data, pre_input, kInputLength);
     
     if (current_interpreter->Invoke() != kTfLiteOk) {
         printf("ERROR: PreSSM inference failed\n");
         return false;
     }
     // Extract outputs: state and gate are outputs from the model
-    TfLiteTensor* pre_output_state = current_interpreter->output(0);  // state
-    TfLiteTensor* pre_output_gate = current_interpreter->output(1);  // gate
+    TfLiteTensor* pre_output_state = current_interpreter->output(0);
+    TfLiteTensor* pre_output_gate = current_interpreter->output(1);
     
 #if USE_QUANTIZED_MODEL
     pre_ssm_state_scale = pre_output_state->params.scale;
@@ -289,13 +287,9 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     memcpy(pre_ssm_state, tflite::GetTensorData<int8_t>(pre_output_state), kPreSSMStateSize * sizeof(int8_t));
     memcpy(pre_ssm_gate, tflite::GetTensorData<int8_t>(pre_output_gate), kPreSSMGateSize * sizeof(int8_t));
 #else
-    // Dequantize outputs to float for inter-stage communication
-    dequantize_tensor_to_float(pre_output_state, pre_ssm_state_float, kPreSSMStateSize);
-    dequantize_tensor_to_float(pre_output_gate, pre_ssm_gate_float, kPreSSMGateSize);
+    memcpy(pre_ssm_state, tflite::GetTensorData<float>(pre_output_state), kPreSSMStateSize * sizeof(float));
+    memcpy(pre_ssm_gate, tflite::GetTensorData<float>(pre_output_gate), kPreSSMGateSize * sizeof(float));
 #endif
-    
-    // Initialize hidden state to zeros (as float)
-    // memset(hidden_state_float, 0, kHiddenStateSize * sizeof(float));
     
     print_memory_debug("PreSSM", current_interpreter);
 #if ENABLE_MODEL_DEBUG_PRINTS
@@ -318,14 +312,12 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     TfLiteTensor* step_output_y = current_interpreter->output(0);
     TfLiteTensor* step_output_updated_hidden = current_interpreter->output(1);
 
+#if USE_QUANTIZED_MODEL
     step_output_y_scale = step_output_y->params.scale;
     step_output_y_zero_point = step_output_y->params.zero_point;
-    
-    // init hidden state
-#if USE_QUANTIZED_MODEL
     memset(tflite::GetTensorData<int8_t>(step_input_hidden), step_input_hidden->params.zero_point, kHiddenStateSize * sizeof(int8_t));
 #else
-    memset(hidden_state_float, 0, kHiddenStateSize * sizeof(float));
+    memset(tflite::GetTensorData<float>(step_input_hidden), 0, kHiddenStateSize * sizeof(float));
 #endif
 
     for (int t = 0; t < kNumTimesteps; t++) {
@@ -333,9 +325,7 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
         requantize_int8_to_tensor(&pre_ssm_state[t * kDInner], pre_ssm_state_scale, pre_ssm_state_zero_point, 
                                   step_input_x, kDInner);
 #else
-        // Re-quantize float buffers using StepSSM's input quantization parameters
-        quantize_float_to_tensor(&pre_ssm_state_float[t * kDInner], step_input_x, kDInner);
-        quantize_float_to_tensor(hidden_state_float, step_input_hidden, kHiddenStateSize);
+        memcpy(tflite::GetTensorData<float>(step_input_x), pre_ssm_state + t * kDInner, kDInner * sizeof(float));
 #endif
 
         if (current_interpreter->Invoke() != kTfLiteOk) {
@@ -346,17 +336,15 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
 #if USE_QUANTIZED_MODEL
         // Copy y_t output to y_all accumulator
         memcpy(pre_ssm_state + t * kDInner, tflite::GetTensorData<int8_t>(step_output_y), kDInner * sizeof(int8_t));
-        
         // Requantize hidden state for next timestep
         requantize_int8_to_tensor(tflite::GetTensorData<int8_t>(step_output_updated_hidden),
                                   step_output_updated_hidden->params.scale, step_output_updated_hidden->params.zero_point,
                                   step_input_hidden, kHiddenStateSize);
 #else
-        // Dequantize outputs to float for next iteration
-        dequantize_tensor_to_float(step_output_y, &y_all_float[t * kDInner], kDInner);
-        dequantize_tensor_to_float(step_output_updated_hidden, hidden_state_float, kHiddenStateSize);
+        // Copy outputs to buffers for next iteration
+        memcpy(pre_ssm_state + t * kDInner, tflite::GetTensorData<float>(step_output_y), kDInner * sizeof(float));
+        memcpy(tflite::GetTensorData<float>(step_input_hidden), tflite::GetTensorData<float>(step_output_updated_hidden), kHiddenStateSize * sizeof(float));
 #endif
-
     }
 
     print_memory_debug("StepSSM", current_interpreter);
@@ -378,8 +366,6 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     TfLiteTensor* post_input_y = current_interpreter->input(0);
     TfLiteTensor* post_input_gate = current_interpreter->input(1);
     
-    // Re-quantize float buffers using PostSSM's input quantization parameters
-    
 #if USE_QUANTIZED_MODEL
     // Requantize y_all (accumulated outputs) and gate for PostSSM inputs
     requantize_int8_to_tensor(pre_ssm_state, step_output_y_scale, step_output_y_zero_point,
@@ -387,8 +373,9 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     requantize_int8_to_tensor(pre_ssm_gate, pre_ssm_gate_scale, pre_ssm_gate_zero_point,
                               post_input_gate, kPreSSMGateSize);
 #else
-    quantize_float_to_tensor(y_all_float, post_input_y, kYAllSize);
-    quantize_float_to_tensor(pre_ssm_gate_float, post_input_gate, kPreSSMGateSize);
+    // Copy float buffers to PostSSM inputs
+    memcpy(tflite::GetTensorData<float>(post_input_y), pre_ssm_state, kYAllSize * sizeof(float));
+    memcpy(tflite::GetTensorData<float>(post_input_gate), pre_ssm_gate, kPreSSMGateSize * sizeof(float));
 #endif
 
     if (current_interpreter->Invoke() != kTfLiteOk) {
@@ -397,7 +384,7 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     }
     
     TfLiteTensor* post_output = current_interpreter->output(0);
-    dequantize_tensor_to_float(post_output, output_logits, kOutputLength);
+    process_model_output(post_output, output_logits, kOutputLength);
     
     print_memory_debug("PostSSM", current_interpreter);
 #if ENABLE_MODEL_DEBUG_PRINTS
