@@ -266,7 +266,7 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     memcpy(pre_ssm_gate, tflite::GetTensorData<int8_t>(pre_output_gate), kPreSSMGateSize * sizeof(int8_t));
 
     dequantize_tensor_to_float(pre_output_state, pre_ssm_state_float, kPreSSMStateSize);
-    // dequantize_tensor_to_float(pre_output_gate, pre_ssm_gate_float, kPreSSMGateSize);
+    dequantize_tensor_to_float(pre_output_gate, pre_ssm_gate_float, kPreSSMGateSize);
 #else
     // Dequantize outputs to float for inter-stage communication
     dequantize_tensor_to_float(pre_output_state, pre_ssm_state_float, kPreSSMStateSize);
@@ -300,10 +300,10 @@ bool run_split_model_inference_raw(const float* input_data, float* output_logits
     // init hidden state
 #if USE_QUANTIZED_MODEL
     // TODO
-    // memset(tflite::GetTensorData<int8_t>(step_input_hidden), step_input_hidden->params.zero_point, kHiddenStateSize * sizeof(int8_t));
-    float temp_hidden_state_float[kHiddenStateSize];
-    memset(temp_hidden_state_float, 0, kHiddenStateSize * sizeof(float));
-    quantize_float_to_tensor(temp_hidden_state_float, step_input_hidden, kHiddenStateSize);
+    memset(tflite::GetTensorData<int8_t>(step_input_hidden), step_input_hidden->params.zero_point, kHiddenStateSize * sizeof(int8_t));
+    // float temp_hidden_state_float[kHiddenStateSize];
+    // memset(temp_hidden_state_float, 0, kHiddenStateSize * sizeof(float));
+    // quantize_float_to_tensor(temp_hidden_state_float, step_input_hidden, kHiddenStateSize);
 #else
     memset(hidden_state_float, 0, kHiddenStateSize * sizeof(float));
 #endif
