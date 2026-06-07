@@ -6,12 +6,12 @@ idf_component_register(
         "full_har_inference/model_full_har_model_data.cc"
         "full_har_inference/model_full_int8_har_model_data.cc"
 
-        "split_har_inference/model_pre_ssm_model_data.cc"
-        "split_har_inference/model_step_ssm_model_data.cc"
-        "split_har_inference/model_post_ssm_model_data.cc"
-        "split_har_inference/model_pre_ssm_int8_model_data.cc"
-        "split_har_inference/model_step_ssm_int8_model_data.cc"
-        "split_har_inference/model_post_ssm_int8_model_data.cc"
+        "split_har_inference/model_pre_ssm_har_model_data.cc"
+        "split_har_inference/model_step_ssm_har_model_data.cc"
+        "split_har_inference/model_post_ssm_har_model_data.cc"
+        "split_har_inference/model_pre_ssm_int8_har_model_data.cc"
+        "split_har_inference/model_step_ssm_int8_har_model_data.cc"
+        "split_har_inference/model_post_ssm_int8_har_model_data.cc"
 
         "split_kws_inference/model_pre_ssm_kws_model_data.cc"
         "split_kws_inference/model_step_ssm_kws_model_data.cc"

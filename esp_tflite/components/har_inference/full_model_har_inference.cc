@@ -1,15 +1,3 @@
-/*
- * ESP32 Inference Wrapper for HAR Model
- * 
- * This is a simple example that demonstrates how to run inference on ESP32
- * using TensorFlow Lite Micro with the quantized HAR model.
- * 
- * To use this:
- * 1. Replace the model data array with your generated hello_world_int8_model_data.h
- * 2. Adapt the input/output handling for your specific model
- * 3. Build and flash to ESP32
- */
-
 // Define to choose between quantized (int8) and float models
 #define USE_QUANTIZED_MODEL 1
 
