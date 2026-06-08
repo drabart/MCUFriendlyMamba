@@ -8,7 +8,8 @@ from torch.utils.data import TensorDataset, random_split
 from torchvision import datasets, transforms
 import os
 import hashlib
-
+import numpy as np
+import tensorflow as tf
 
 
 def load_mnist_data(data_dir):
@@ -60,61 +61,82 @@ TARGET_SAMPLE_RATE = 16_000
 SAMPLE_LENGTH = 16_000  # 1 second at 16 kHz
 
 
-def _preprocessing_hash(n_mfcc, n_fft, hop_length, n_mels, sample_rate):
-    """Stable short hash of all preprocessing parameters — used as cache key."""
-    key = f"mfcc{n_mfcc}_fft{n_fft}_hop{hop_length}_mels{n_mels}_sr{sample_rate}"
+def _preprocessing_hash(preprocessor_path):
+    """Stable hash based on the preprocessor model file's modification time."""
+    mtime = os.path.getmtime(preprocessor_path)
+    key = f"tflite_preprocessor_{mtime}"
     return hashlib.md5(key.encode()).hexdigest()[:10]
 
 
-def load_speechcommands_data(data_dir, n_mfcc=40, cache_dir=None):
+def load_speechcommands_data(data_dir, preprocessor_tflite_path, cache_dir=None):
     """
-    Load Speech Commands v2 with MFCC preprocessing following the Keyword Mamba
-    paper: each sample is returned as X ∈ ℝ^(T × F), a sequence of T time-frame
-    patches each carrying F = n_mfcc coefficients, ready for linear projection.
-
-    Preprocessed features are cached to disk on the first pass and reused on
-    subsequent runs. The cache is keyed by a hash of all preprocessing parameters,
-    so changing n_mfcc, hop_length, etc. automatically triggers a fresh cache.
+    Load Speech Commands v2 using Google's micro_speech TFLite preprocessor model.
+    Each sample is returned as X ∈ ℝ^(49 × 40) in INT8 format, perfectly matching
+    the microcontroller's on-device tensor inputs.
 
     Args:
-        data_dir:   Root directory where the dataset is stored / downloaded.
-        n_mfcc:     Number of MFCC coefficients (= frequency dimension F).
-        cache_dir:  Root directory for the feature cache.  Defaults to
-                    <data_dir>/.mfcc_cache.
+        data_dir:                 Root directory where the dataset is stored.
+        preprocessor_tflite_path: Path to the generated 'audio_preprocessor_int8.tflite'.
+        cache_dir:                Root directory for the feature cache.
     Returns:
         train_ds, val_ds, test_ds — wrapped datasets ready for DataLoader.
     """
-    N_FFT      = 400
-    HOP_LENGTH = 320
+    if not os.path.exists(preprocessor_tflite_path):
+        raise FileNotFoundError(
+            f"Preprocessor TFLite file not found at: {preprocessor_tflite_path}. "
+            "Please run the micro_speech audio_preprocessor script first to generate it."
+        )
 
     if cache_dir is None:
-        cache_dir = os.path.join(data_dir, ".mfcc_cache")
+        cache_dir = os.path.join(data_dir, ".micro_speech_cache")
 
-    param_tag = _preprocessing_hash(n_mfcc, N_FFT, HOP_LENGTH, 80, TARGET_SAMPLE_RATE)
+    param_tag = _preprocessing_hash(preprocessor_tflite_path)
     versioned_cache = os.path.join(cache_dir, param_tag)
 
-    mfcc_transform = torchaudio.transforms.MFCC(
-        sample_rate=TARGET_SAMPLE_RATE,
-        n_mfcc=n_mfcc,
-        melkwargs={
-            "n_fft":       N_FFT,
-            "hop_length":  HOP_LENGTH,
-            "n_mels":      80,
-        },
-    )
+    # Initialize the TFLite Interpreter for the feature extractor
+    interpreter = tf.lite.Interpreter(model_path=preprocessor_tflite_path)
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
 
     def preprocess(waveform, sample_rate):
+        # 1. Handle Resampling
         if sample_rate != TARGET_SAMPLE_RATE:
             waveform = torchaudio.transforms.Resample(
                 sample_rate, TARGET_SAMPLE_RATE
             )(waveform)
+            
+        # 2. Pad or truncate to exactly 1 second (16000 samples)
         length = waveform.shape[-1]
         if length < SAMPLE_LENGTH:
             waveform = torch.nn.functional.pad(waveform, (0, SAMPLE_LENGTH - length))
         else:
             waveform = waveform[..., :SAMPLE_LENGTH]
-        mfcc = mfcc_transform(waveform)
-        return mfcc.squeeze(0).transpose(0, 1)  # (T, F)
+            
+        # 3. Convert Float32 audio (-1.0 to 1.0) into INT16 samples (-32768 to 32767)
+        # matching the micro_speech WAV loading strategy
+        audio_np = waveform.squeeze(0).numpy()
+        audio_int16 = np.clip(audio_np * 32768.0, -32768, 32767).astype(np.int16)
+
+        # 4. Slice into 49 frames matching window_size=30ms (480 samples) and stride=20ms (320 samples)
+        window_size = 480
+        hop_length = 320
+        features = []
+
+        for i in range(0, len(audio_int16) - window_size + 1, hop_length):
+            frame = audio_int16[i : i + window_size]
+            frame = np.reshape(frame, (1, window_size))
+            
+            # Run the frame through Google's custom TFLite Signal Pipeline
+            interpreter.set_tensor(input_details[0]['index'], frame)
+            interpreter.invoke()
+            
+            # Extract the 40 int8 features generated for this specific window
+            feature_frame = interpreter.get_tensor(output_details[0]['index'])
+            features.append(feature_frame.flatten())
+
+        # Returns a torch tensor of shape (49, 40)
+        return torch.tensor(np.array(features), dtype=torch.float32)
 
     class SpeechCommandsWrapper(torch.utils.data.Dataset):
         def __init__(self, subset):
@@ -127,11 +149,8 @@ def load_speechcommands_data(data_dir, n_mfcc=40, cache_dir=None):
             return len(self._ds)
 
         def _cache_path(self, idx):
-            # _walker holds the full audio file path — use it as a stable,
-            # order-independent key rather than the integer index.
             audio_path = self._ds._walker[idx]
             rel = os.path.relpath(audio_path, data_dir)
-            # Flatten the relative path into a single filename.
             safe_name = rel.replace(os.sep, "__")
             return os.path.join(self._cache_dir, safe_name + ".pt")
 
@@ -141,17 +160,15 @@ def load_speechcommands_data(data_dir, n_mfcc=40, cache_dir=None):
 
             path = self._cache_path(idx)
             if os.path.exists(path):
-                item =  torch.load(path, weights_only=True)
+                item = torch.load(path, weights_only=True)
             else:
                 waveform, sample_rate, label, *_ = self._ds[idx]
-                mfcc   = preprocess(waveform, sample_rate)   # (T, F)
-                target = LABEL_TO_IDX[label]
-                item = (mfcc, target)
+                features = preprocess(waveform, sample_rate)   # Shape: (49, 40)
+                target   = LABEL_TO_IDX[label]
+                item     = (features, target)
 
-                # Atomic write: write to a temp file then rename to avoid
-                # leaving partial .pt files if the process is interrupted.
                 tmp_path = path + ".tmp"
-                torch.save((mfcc, target), tmp_path)
+                torch.save((features, target), tmp_path)
                 os.replace(tmp_path, path)
 
             self._mem[idx] = item

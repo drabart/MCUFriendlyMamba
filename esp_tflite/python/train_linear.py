@@ -141,7 +141,7 @@ def main():
         dataset_name = "UCI HAR"
     else:
         print("Loading SpeechCommands (KWS) dataset...")
-        train_ds, val_ds, test_ds = load_speechcommands_data(args.dataset_dir)
+        train_ds, val_ds, test_ds = load_speechcommands_data(args.dataset_dir, "models/audio_preprocessor_float.tflite")
         # infer input shape from first sample: (T, F)
         sample_x, _ = train_ds[0]
         inferred_input_shape = (1,) + tuple(sample_x.shape)
