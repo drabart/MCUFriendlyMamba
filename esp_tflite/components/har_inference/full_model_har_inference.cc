@@ -78,7 +78,7 @@ void run_inference() {
     resolver.AddAdd();
     resolver.AddLog();
 
-    resolver.AddSelect();
+    // resolver.AddSelect();
     resolver.AddSelectV2();
     resolver.AddGreater();
     resolver.AddBroadcastTo();

@@ -33,10 +33,8 @@ const char* ACTIVITY_LABELS[] = {
 
 // Match the model tensor element type selected by CONFIG_USE_QUANTIZED_MODEL.
 #if CONFIG_USE_QUANTIZED_MODEL
-using model_tensor_t = int8_t;
 constexpr const char* kModelTypeName = "HAR INT8";
 #else
-using model_tensor_t = float;
 constexpr const char* kModelTypeName = "HAR Float32";
 #endif
 
