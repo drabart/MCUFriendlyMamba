@@ -27,7 +27,7 @@ endchoice
 
 config ENABLE_MODEL_DEBUG_PRINTS
    int
-   default 0 if FLOAT_MODEL
-   default 1 if QUANTIZED_MODEL
+   default 0 if TEST_ACCURACY
+   default 1 if TEST_PERFORMANCE
 
 endmenu

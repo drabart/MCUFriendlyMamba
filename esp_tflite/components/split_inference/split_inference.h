@@ -39,6 +39,11 @@ public:
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         profiler.ClearEvents();
 #endif
+        if (!create_interpreters(pre_model_data, step_model_data, post_model_data)) {
+            printf("ERROR: Failed to create interpreters\n");
+            return;
+        }
+
         printf("✓ TensorFlow Lite Micro initialized\n");
         printf("✓ Shared tensor arena: %d KB\n", kTensorArenaSize / 1024);
         printf("✓ Model type: %s\n", this->name);
@@ -72,15 +77,15 @@ public:
 
 private:
     // ========== Derived Size Constants ==========
-    static constexpr int kInputLength = kNumTimesteps * kNumFeatures;  // 51 * 40 = 2040
-    static constexpr int kPreSSMStateSize = kNumTimesteps * kDInner;   // 51 * 128 = 6528
-    static constexpr int kPreSSMGateSize = kNumTimesteps * kDInner;    // 51 * 128 = 6528
-    static constexpr int kPreSSMOutputSize = kPreSSMStateSize + kPreSSMGateSize;  // 51*128*2 = 13056
-    static constexpr int kHiddenStateSize = kDInner * kDState;         // 128 * 16 = 2048
-    static constexpr int kStepSSMInputSize = kDInner + kHiddenStateSize;  // 128 + 2048 = 2176
-    static constexpr int kStepSSMOutputSize = kDInner + kHiddenStateSize; // 128 + 2048 = 2176
-    static constexpr int kYAllSize = kNumTimesteps * kDInner;          // 51 * 128 = 6528
-    static constexpr int kPostSSMInputSize = kYAllSize + kPreSSMGateSize;  // 6528 + 6528 = 13056
+    static constexpr int kInputLength = kNumTimesteps * kNumFeatures;
+    static constexpr int kPreSSMStateSize = kNumTimesteps * kDInner;
+    static constexpr int kPreSSMGateSize = kNumTimesteps * kDInner;
+    static constexpr int kPreSSMOutputSize = kPreSSMStateSize + kPreSSMGateSize;
+    static constexpr int kHiddenStateSize = kDInner * kDState;
+    static constexpr int kStepSSMInputSize = kDInner + kHiddenStateSize;
+    static constexpr int kStepSSMOutputSize = kDInner + kHiddenStateSize;
+    static constexpr int kYAllSize = kNumTimesteps * kDInner;
+    static constexpr int kPostSSMInputSize = kYAllSize + kPreSSMGateSize;
     static constexpr int kOutputLength = kNumClasses;
 
     // ========== Shared Memory ==========
@@ -89,9 +94,19 @@ private:
 
     // Interpreter pointer (only one used at a time)
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
-    tflite::RecordingMicroInterpreter* current_interpreter = nullptr;
+    tflite::RecordingMicroAllocator* shared_allocator = 
+        tflite::RecordingMicroAllocator::Create(tensor_arena, kTensorArenaSize);
+
+    tflite::RecordingMicroInterpreter* pre_interpreter = nullptr;
+    tflite::RecordingMicroInterpreter* step_interpreter = nullptr;
+    tflite::RecordingMicroInterpreter* post_interpreter = nullptr;
 #else
-    tflite::MicroInterpreter* current_interpreter = nullptr;
+    tflite::MicroAllocator* shared_allocator = 
+        tflite::MicroAllocator::Create(tensor_arena, kTensorArenaSize);
+
+    tflite::MicroInterpreter* pre_interpreter = nullptr;
+    tflite::MicroInterpreter* step_interpreter = nullptr;
+    tflite::MicroInterpreter* post_interpreter = nullptr;
 #endif
 
     // Single shared resolver
@@ -188,85 +203,93 @@ private:
 
     bool resolver_initialized = false;
 
-    // Helper function to create interpreter with shared arena
-    bool create_interpreter(
-        const uint8_t* model_data,
-        const char* model_name) {
+    bool create_interpreters(
+        const uint8_t* pre_model_data,
+        const uint8_t* step_model_data,
+        const uint8_t* post_model_data) {
         
-        const tflite::Model* model = tflite::GetModel(model_data);
-        if (model->version() != TFLITE_SCHEMA_VERSION) {
-            printf("ERROR: %s model version mismatch!\n", model_name);
+        const tflite::Model* pre_model = tflite::GetModel(pre_model_data);
+        const tflite::Model* step_model = tflite::GetModel(step_model_data);
+        const tflite::Model* post_model = tflite::GetModel(post_model_data);
+        if (pre_model->version() != TFLITE_SCHEMA_VERSION || 
+            step_model->version() != TFLITE_SCHEMA_VERSION || 
+            post_model->version() != TFLITE_SCHEMA_VERSION) {
+            printf("ERROR: model version mismatch!\n");
             return false;
         }
-
-        if (current_interpreter != nullptr) {
-            delete current_interpreter;
-            current_interpreter = nullptr;
-        }
         
-        // Initialize resolver once
-        if (!this->resolver_initialized) {
-            resolver.AddFullyConnected();
-            resolver.AddDepthwiseConv2D();
-            
-            resolver.AddGatherNd();
-            resolver.AddReshape();
-            resolver.AddTranspose();
-            resolver.AddSlice();
-            resolver.AddPad();
+        resolver.AddFullyConnected();
+        resolver.AddDepthwiseConv2D();
+        
+        resolver.AddGatherNd();
+        resolver.AddReshape();
+        resolver.AddTranspose();
+        resolver.AddSlice();
+        resolver.AddPad();
 
-            resolver.AddMul();
-            resolver.AddAdd();
-            resolver.AddSum();
+        resolver.AddMul();
+        resolver.AddAdd();
+        resolver.AddSum();
 
-            resolver.AddQuantize();
-            resolver.AddDequantize();
-            
-            resolver.AddRelu();
-            resolver.AddExp();
-            // resolver.AddLogistic();
-            // resolver.AddLog();
-            
-            this->resolver_initialized = true;
-        }
+        resolver.AddQuantize();
+        resolver.AddDequantize();
+        
+        resolver.AddRelu();
+        resolver.AddExp();
+        // resolver.AddLogistic();
+        // resolver.AddLog();
 
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         // Create new recording interpreter with shared arena and profiler
-        current_interpreter = new tflite::RecordingMicroInterpreter(
-            model, resolver, tensor_arena, kTensorArenaSize, nullptr, &profiler);
+        pre_interpreter = new tflite::RecordingMicroInterpreter(
+            pre_model, resolver, shared_allocator, nullptr, &profiler);
+        step_interpreter = new tflite::RecordingMicroInterpreter(
+            step_model, resolver, shared_allocator, nullptr, &profiler);
+        post_interpreter = new tflite::RecordingMicroInterpreter(
+            post_model, resolver, shared_allocator, nullptr, &profiler);
 #else
-        current_interpreter = new tflite::MicroInterpreter(
-            model, resolver, tensor_arena, kTensorArenaSize);
+        pre_interpreter = new tflite::MicroInterpreter(
+            pre_model, resolver, shared_allocator);
+        step_interpreter = new tflite::MicroInterpreter(
+            step_model, resolver, shared_allocator);
+        post_interpreter = new tflite::MicroInterpreter(
+            post_model, resolver, shared_allocator);
 #endif
     
-        if (current_interpreter->AllocateTensors() != kTfLiteOk) {
-            printf("ERROR: Failed to allocate tensors for %s\n", model_name);
+        if (pre_interpreter->AllocateTensors() != kTfLiteOk || 
+            step_interpreter->AllocateTensors() != kTfLiteOk || 
+            post_interpreter->AllocateTensors() != kTfLiteOk) {
+            printf("ERROR: Failed to allocate tensors for one or more models\n");
             return false;
         }
 
         return true;
-    }
-
+        }
 
     bool run_split_model_inference_raw(const float* input_data, float* output_logits) {
+        // ========== STAGE 1: PreSSM ==========
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         int64_t inference_start_time = esp_timer_get_time();
 #endif
-        // ========== STAGE 1: PreSSM ==========
-        if (!create_interpreter(pre_model_data, "PreSSM")) {
-            return false;
-        }
+        TfLiteTensor* pre_input = pre_interpreter->input(0);
+        TfLiteTensor* pre_output_state = pre_interpreter->output(0);
+        TfLiteTensor* pre_output_gate = pre_interpreter->output(1);
+
+        TfLiteTensor* step_input_x = step_interpreter->input(0);
+        TfLiteTensor* step_input_hidden = step_interpreter->input(1);
+        TfLiteTensor* step_output_y = step_interpreter->output(0);
+        TfLiteTensor* step_output_updated_hidden = step_interpreter->output(1);
+
+        TfLiteTensor* post_input_y = post_interpreter->input(0);
+        TfLiteTensor* post_input_gate = post_interpreter->input(1);
+        TfLiteTensor* post_output = post_interpreter->output(0);
         
-        TfLiteTensor* pre_input = current_interpreter->input(0);
         process_model_input(input_data, pre_input, kInputLength);
         
-        if (current_interpreter->Invoke() != kTfLiteOk) {
+        if (pre_interpreter->Invoke() != kTfLiteOk) {
             printf("ERROR: PreSSM inference failed\n");
             return false;
         }
-        // Extract outputs: state and gate are outputs from the model
-        TfLiteTensor* pre_output_state = current_interpreter->output(0);
-        TfLiteTensor* pre_output_gate = current_interpreter->output(1);
         
 #if CONFIG_USE_QUANTIZED_MODEL
         pre_ssm_state_scale = pre_output_state->params.scale;
@@ -281,22 +304,13 @@ private:
 #endif
         
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
-        print_memory_debug("PreSSM", current_interpreter);
+        print_memory_debug("PreSSM", pre_interpreter);
         printf("\n--- PreSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();
         profiler.AdvanceLap();
 #endif
         
-        // ========== STAGE 2: StepSSM Loop ==========
-        if (!create_interpreter(step_model_data, "StepSSM")) {
-            return false;
-        }
-        
-        TfLiteTensor* step_input_x = current_interpreter->input(0);
-        TfLiteTensor* step_input_hidden = current_interpreter->input(1);
-        TfLiteTensor* step_output_y = current_interpreter->output(0);
-        TfLiteTensor* step_output_updated_hidden = current_interpreter->output(1);
-
+        // ========== STAGE 2: StepSSM Loop ========== 
 #if CONFIG_USE_QUANTIZED_MODEL
         step_output_y_scale = step_output_y->params.scale;
         step_output_y_zero_point = step_output_y->params.zero_point;
@@ -307,13 +321,15 @@ private:
 
         for (int t = 0; t < kNumTimesteps; t++) {
 #if CONFIG_USE_QUANTIZED_MODEL
+            // requantize_int8_to_tensor(&tflite::GetTensorData<int8_t>(pre_output_state)[t * kDInner], 
+            //     pre_output_state->params.scale, pre_output_state->params.zero_point, step_input_x, kDInner);
             requantize_int8_to_tensor(&pre_ssm_state[t * kDInner], pre_ssm_state_scale, pre_ssm_state_zero_point, 
                                     step_input_x, kDInner);
 #else
             memcpy(tflite::GetTensorData<float>(step_input_x), pre_ssm_state + t * kDInner, kDInner * sizeof(float));
 #endif
 
-            if (current_interpreter->Invoke() != kTfLiteOk) {
+            if (step_interpreter->Invoke() != kTfLiteOk) {
                 printf("ERROR: StepSSM inference failed at timestep %d\n", t);
                 return false;
             }
@@ -333,20 +349,13 @@ private:
         }
 
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
-        print_memory_debug("StepSSM", current_interpreter);
+        print_memory_debug("StepSSM", step_interpreter);
         printf("\n--- StepSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();
         profiler.AdvanceLap();
 #endif
         
         // ========== STAGE 3: PostSSM ==========
-        if (!create_interpreter(post_model_data, "PostSSM")) {
-            return false;
-        }
-        
-        TfLiteTensor* post_input_y = current_interpreter->input(0);
-        TfLiteTensor* post_input_gate = current_interpreter->input(1);
-        
 #if CONFIG_USE_QUANTIZED_MODEL
         // Requantize y_all (accumulated outputs) and gate for PostSSM inputs
         requantize_int8_to_tensor(pre_ssm_state, step_output_y_scale, step_output_y_zero_point,
@@ -359,16 +368,20 @@ private:
         memcpy(tflite::GetTensorData<float>(post_input_gate), pre_ssm_gate, kPreSSMGateSize * sizeof(float));
 #endif
 
-        if (current_interpreter->Invoke() != kTfLiteOk) {
+        if (post_interpreter->Invoke() != kTfLiteOk) {
             printf("ERROR: PostSSM inference failed\n");
             return false;
         }
         
-        TfLiteTensor* post_output = current_interpreter->output(0);
         process_model_output(post_output, output_logits, kOutputLength);
+
+        pre_interpreter->Reset();
+        step_interpreter->Reset();
+        post_interpreter->Reset();
+        shared_allocator->ResetTempAllocations();
         
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
-        print_memory_debug("PostSSM", current_interpreter);
+        print_memory_debug("PostSSM", post_interpreter);
         printf("\n--- PostSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();
         printf("\n--- Total Profiling Results ---\n");

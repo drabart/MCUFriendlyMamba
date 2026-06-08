@@ -1,0 +1,12 @@
+# This file was generated using idf.py save-defconfig or menuconfig [D] key. It can be edited manually.
+# Espressif IoT Development Framework (ESP-IDF) 6.0.1 Project Minimal Configuration
+#
+# default:
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_QUANTIZED_MODEL=y
+CONFIG_NN_SKIP_NUDGE=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+CONFIG_ESP_INT_WDT=n
+CONFIG_ESP_TASK_WDT_INIT=n
