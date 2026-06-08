@@ -1,5 +1,4 @@
-// Define to choose between quantized (int8) and float models
-#define USE_QUANTIZED_MODEL 1
+#include "sdkconfig.h"
 
 #include "full_model_har_inference.h"
 
@@ -11,7 +10,7 @@
 #include "tensorflow/lite/micro/kernels/micro_ops.h"
 
 // Include generated model data
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
 #include "model_full_int8_har_model_data.h"
 #else
 #include "model_full_har_model_data.h"
@@ -48,7 +47,7 @@ void run_inference() {
     tflite::InitializeTarget();
     
     // Load model
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
     const tflite::Model* model = tflite::GetModel(g_model_full_int8_har_model_data);
 #else
     const tflite::Model* model = tflite::GetModel(g_model_full_har_model_data);
@@ -102,7 +101,7 @@ void run_inference() {
     TfLiteTensor* input = interpreter.input(0);
     TfLiteTensor* output = interpreter.output(0);
 
-    printf("Model Type: %s\n", USE_QUANTIZED_MODEL ? "INT8 Quantized" : "Float32");
+    // printf("Model Type: %s\n", CONFIG_USE_QUANTIZED_MODEL ? "INT8 Quantized" : "Float32");
     
     printf("Input shape: ");
     for (int i = 0; i < input->dims->size; i++) {

@@ -1,4 +1,4 @@
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
 #include "tensorflow/lite/micro/recording_micro_interpreter.h"
 #else
 #include "tensorflow/lite/micro/micro_interpreter.h"
@@ -36,13 +36,13 @@ public:
 
         printf("\n=== Split Mamba %s Inference Setup ===\n", this->name);
         tflite::InitializeTarget();
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         profiler.ClearEvents();
 #endif
         printf("✓ TensorFlow Lite Micro initialized\n");
         printf("✓ Shared tensor arena: %d KB\n", kTensorArenaSize / 1024);
         printf("✓ Model type: %s\n", this->name);
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
         printf("✓ Inter-model buffers: %d KB (int8)\n", (kPreSSMStateSize + kPreSSMGateSize) / 1024);
 #else
         printf("✓ Inter-model buffers: %d KB (float32)\n", ((kPreSSMStateSize + kPreSSMGateSize) * sizeof(float)) / 1024);
@@ -88,7 +88,7 @@ private:
     inline static uint8_t tensor_arena[kTensorArenaSize] = {};
 
     // Interpreter pointer (only one used at a time)
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
     tflite::RecordingMicroInterpreter* current_interpreter = nullptr;
 #else
     tflite::MicroInterpreter* current_interpreter = nullptr;
@@ -97,7 +97,7 @@ private:
     // Single shared resolver
     tflite::MicroMutableOpResolver<20> resolver;
 
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
     // Single shared profiler (reused across all models)
     tflite::CustomProfiler<1024, 20> profiler;
 
@@ -105,7 +105,7 @@ private:
 #endif
 
 // ========== Inter-model Communication Buffers ==========
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
 
     float pre_ssm_gate_scale = 0.0f;
     int32_t pre_ssm_gate_zero_point = 0;
@@ -125,7 +125,7 @@ private:
 #endif
 
     void process_model_output(const TfLiteTensor* tensor, float* output, size_t size) {
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
         const int8_t* tensor_data = tflite::GetTensorData<int8_t>(tensor);
         const float scale = tensor->params.scale;
         const int zero_point = tensor->params.zero_point;
@@ -139,7 +139,7 @@ private:
     }
 
     void process_model_input(const float* input, TfLiteTensor* tensor, size_t size) {
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
         int8_t* tensor_data = tflite::GetTensorData<int8_t>(tensor);
         const float scale = tensor->params.scale;
         const int zero_point = tensor->params.zero_point;
@@ -156,7 +156,7 @@ private:
 #endif
     }
 
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
     void requantize_int8_to_tensor(
         const int8_t* source_data,
         float source_scale,
@@ -179,7 +179,7 @@ private:
     }
 #endif
 
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
     void print_memory_debug(const char* step_name, tflite::RecordingMicroInterpreter* interpreter) {
         printf("\n--- %s Memory Allocation ---\n", step_name);
         interpreter->GetMicroAllocator().PrintAllocations();
@@ -230,7 +230,7 @@ private:
             this->resolver_initialized = true;
         }
 
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         // Create new recording interpreter with shared arena and profiler
         current_interpreter = new tflite::RecordingMicroInterpreter(
             model, resolver, tensor_arena, kTensorArenaSize, nullptr, &profiler);
@@ -249,7 +249,7 @@ private:
 
 
     bool run_split_model_inference_raw(const float* input_data, float* output_logits) {
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         int64_t inference_start_time = esp_timer_get_time();
 #endif
         // ========== STAGE 1: PreSSM ==========
@@ -268,7 +268,7 @@ private:
         TfLiteTensor* pre_output_state = current_interpreter->output(0);
         TfLiteTensor* pre_output_gate = current_interpreter->output(1);
         
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
         pre_ssm_state_scale = pre_output_state->params.scale;
         pre_ssm_state_zero_point = pre_output_state->params.zero_point;
         pre_ssm_gate_scale = pre_output_gate->params.scale;
@@ -280,7 +280,7 @@ private:
         memcpy(pre_ssm_gate, tflite::GetTensorData<float>(pre_output_gate), kPreSSMGateSize * sizeof(float));
 #endif
         
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         print_memory_debug("PreSSM", current_interpreter);
         printf("\n--- PreSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();
@@ -297,7 +297,7 @@ private:
         TfLiteTensor* step_output_y = current_interpreter->output(0);
         TfLiteTensor* step_output_updated_hidden = current_interpreter->output(1);
 
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
         step_output_y_scale = step_output_y->params.scale;
         step_output_y_zero_point = step_output_y->params.zero_point;
         memset(tflite::GetTensorData<int8_t>(step_input_hidden), step_input_hidden->params.zero_point, kHiddenStateSize * sizeof(int8_t));
@@ -306,7 +306,7 @@ private:
 #endif
 
         for (int t = 0; t < kNumTimesteps; t++) {
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
             requantize_int8_to_tensor(&pre_ssm_state[t * kDInner], pre_ssm_state_scale, pre_ssm_state_zero_point, 
                                     step_input_x, kDInner);
 #else
@@ -318,7 +318,7 @@ private:
                 return false;
             }
 
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
             // Copy y_t output to y_all accumulator
             memcpy(pre_ssm_state + t * kDInner, tflite::GetTensorData<int8_t>(step_output_y), kDInner * sizeof(int8_t));
             // Requantize hidden state for next timestep
@@ -332,7 +332,7 @@ private:
 #endif
         }
 
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         print_memory_debug("StepSSM", current_interpreter);
         printf("\n--- StepSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();
@@ -347,7 +347,7 @@ private:
         TfLiteTensor* post_input_y = current_interpreter->input(0);
         TfLiteTensor* post_input_gate = current_interpreter->input(1);
         
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
         // Requantize y_all (accumulated outputs) and gate for PostSSM inputs
         requantize_int8_to_tensor(pre_ssm_state, step_output_y_scale, step_output_y_zero_point,
                                 post_input_y, kYAllSize);
@@ -367,7 +367,7 @@ private:
         TfLiteTensor* post_output = current_interpreter->output(0);
         process_model_output(post_output, output_logits, kOutputLength);
         
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         print_memory_debug("PostSSM", current_interpreter);
         printf("\n--- PostSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();

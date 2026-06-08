@@ -1,8 +1,4 @@
-// Define to choose between quantized (int8) and float models
-#define USE_QUANTIZED_MODEL 0
-
-// Set to 1 to print allocator and profiler details after each model step.
-#define ENABLE_MODEL_DEBUG_PRINTS 1
+#include "sdkconfig.h"
 
 #include "split_model_har_inference.h"
 #include "split_inference.h"
@@ -19,7 +15,7 @@ const char* ACTIVITY_LABELS[] = {
     "LAYING"
 };
 
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
 #include "model_pre_ssm_int8_har_model_data.h"
 #include "model_step_ssm_int8_har_model_data.h"
 #include "model_post_ssm_int8_har_model_data.h"
@@ -35,8 +31,8 @@ const char* ACTIVITY_LABELS[] = {
 #include <cmath>
 #include <cstring>
 
-// Match the model tensor element type selected by USE_QUANTIZED_MODEL.
-#if USE_QUANTIZED_MODEL
+// Match the model tensor element type selected by CONFIG_USE_QUANTIZED_MODEL.
+#if CONFIG_USE_QUANTIZED_MODEL
 using model_tensor_t = int8_t;
 constexpr const char* kModelTypeName = "HAR INT8";
 #else
@@ -54,7 +50,7 @@ constexpr int kNumClasses = 6;
 SplitInference<kNumTimesteps, kDInner, kDState, kNumFeatures, kNumClasses> model_inference;
 
 void run_inference_har() {
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
     model_inference.setup_split_model_inference(
         g_model_pre_ssm_int8_har_model_data, 
         g_model_step_ssm_int8_har_model_data, 
@@ -70,7 +66,7 @@ void run_inference_har() {
     );
 #endif
     
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
     const int num_samples = 1;
 #else
     const int num_samples = 50;

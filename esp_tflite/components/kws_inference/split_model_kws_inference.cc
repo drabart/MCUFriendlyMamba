@@ -1,15 +1,11 @@
-// Define to choose between quantized (int8) and float models
-#define USE_QUANTIZED_MODEL 0
-
-// Set to 1 to print allocator and profiler details after each model step.
-#define ENABLE_MODEL_DEBUG_PRINTS 0
+#include "sdkconfig.h"
 
 #include "split_model_kws_inference.h"
 #include "split_inference.h"
 
 #include "kws_test_samples.h"
 
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
 #include "model_pre_ssm_int8_kws_model_data.h"
 #include "model_step_ssm_int8_kws_model_data.h"
 #include "model_post_ssm_int8_kws_model_data.h"
@@ -33,8 +29,8 @@ const char* KEYWORD_LABELS[] = {
     "tree", "two", "up", "visual", "wow", "yes", "zero"
 };
 
-// Match the model tensor element type selected by USE_QUANTIZED_MODEL.
-#if USE_QUANTIZED_MODEL
+// Match the model tensor element type selected by CONFIG_USE_QUANTIZED_MODEL.
+#if CONFIG_USE_QUANTIZED_MODEL
 using model_tensor_t = int8_t;
 constexpr const char* kModelTypeName = "KWS INT8";
 #else
@@ -52,7 +48,7 @@ constexpr int kNumClasses = 35;            // Keyword classification classes
 SplitInference<kNumTimesteps, kDInner, kDState, kNumFeatures, kNumClasses> model_inference;
 
 void run_inference_kws() {
-#if USE_QUANTIZED_MODEL
+#if CONFIG_USE_QUANTIZED_MODEL
     model_inference.setup_split_model_inference(
         g_model_pre_ssm_int8_kws_model_data, 
         g_model_step_ssm_int8_kws_model_data, 
@@ -68,7 +64,7 @@ void run_inference_kws() {
     );
 #endif
     
-#if ENABLE_MODEL_DEBUG_PRINTS
+#if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
     const int num_samples = 1;
 #else
     const int num_samples = 50;

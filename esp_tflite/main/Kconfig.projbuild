@@ -1,0 +1,33 @@
+menu "esp_mamba"
+
+choice MODEL_QUANTIZATION
+   bool "Model Quantization"
+   default FLOAT_MODEL
+
+config FLOAT_MODEL
+   bool "Float (float32)"
+config QUANTIZED_MODEL
+   bool "Quantized (int8)"
+endchoice
+
+config USE_QUANTIZED_MODEL
+   int
+   default 0 if FLOAT_MODEL
+   default 1 if QUANTIZED_MODEL
+
+choice ACCURACY_BUILD
+   bool "Build for Accuracy testing"
+   default TEST_ACCURACY
+
+config TEST_ACCURACY
+   bool "Test Accuracy"
+config TEST_PERFORMANCE
+   bool "Test Performance"
+endchoice
+
+config ENABLE_MODEL_DEBUG_PRINTS
+   int
+   default 0 if FLOAT_MODEL
+   default 1 if QUANTIZED_MODEL
+
+endmenu
