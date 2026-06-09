@@ -1,34 +1,35 @@
 \section{Responsible Research}
 \label{sec:responsible_research}
 
-This section discusses ethical considerations, reproducibility practices, and how AI tools were used during the research. It documents dataset and code licensing, replication steps, and potential misuse risks and mitigations.
+This section outlines the ethical considerations, reproducibility frameworks, and the structured use of generative AI tools throughout this study. Specifically, we document dataset and code compliance, experimental replication protocols, and potential dual-use risks alongside corresponding mitigation strategies.
 
 \subsection{Ethical Considerations}
 
-While this work does not involve third-party participants, it is important to consider potential impacts. The main focus is enabling more efficient machine learning on microcontrollers. Shifting some computation from datacenters to low-power devices can improve sustainability.
+While this study does not involve human subjects or direct third-party participants, the broader implications of deploying machine learning on edge devices warrant careful ethical consideration. By optimizing machine learning frameworks for resource-constrained microcontrollers, this work shifts computational workloads from centralized datacenters to low-power edge devices, thereby contributing to environmental sustainability via reduced operational carbon footprints.
 
-On-device processing can cut cloud exposure and improve privacy by keeping raw data local, but it can also be misused (for example, for covert surveillance). Deployment should therefore consider safeguards, transparency, and appropriate governance.
+Furthermore, on-device processing inherently enhances user privacy by keeping raw data local and minimizing cloud-based data exposure. However, decentralized processing also introduces potential risks, such as facilitating covert local surveillance. Consequently, downstream deployments must integrate robust hardware safeguards, operational transparency, and appropriate governance frameworks. Because TinyML applications frequently process highly sensitive telemetry (e.g., biomedical or acoustic data), developers utilizing this framework must implement stringent security measures and maintain transparency regarding data lifecycle management.
+
+Additionally, the proliferation of specialized edge devices introduces e-waste risks due to rapid hardware obsolescence. To mitigate this impact, practitioners are encouraged to prioritize hardware longevity, provide long-term software maintenance, and adhere to responsible electronic waste disposal practices.
+
+Finally, we acknowledge the systematic risk of algorithmic and dataset bias. The datasets benchmarked in this work (HAR and Google Speech Commands) are established standards within the TinyML community; however, they may exhibit representation gaps across diverse populations or operational environments. These limitations must be factored into the generalization and interpretation of the empirical results.
 
 \subsection{Reproducibility}
 
-The datasets used in this research are publicly available, and all software used had licenses permitting research use and has been acknowledged.
+All datasets utilized in this research are publicly available, and all associated software dependencies are governed by open-source licenses permitting research usage. To ensure reproducibility, we have comprehensively documented the experimental pipeline, including model training, optimization, quantization, and microcontroller benchmarking. While full replication requires specific hardware targets, the ESP32 family utilized in this study is widely accessible within the research community.
 
-We documented the steps needed to replicate the experiments, including model training, conversion, quantization, and microcontroller benchmarking. Full replication requires the specific MCU, but the ESP32 family used here is widely available in the TinyML community.
-
-We used a single profiler consistently across runs and annotated results with the MCU variant used to improve comparability.
-
-The project code is publicly available and includes instructions and library versions to facilitate replication.
+To ensure empirical fidelity, performance profiling was conducted using a unified, consistent profiler across all experimental iterations, with results systematically annotated by the specific microcontroller variant used. The complete codebase—including replication scripts, library dependencies, and exact version constraints—is hosted in a public repository to facilitate community verification.
 
 \subsection{Use of AI Tools}
 
-AI tools were used as supportive instruments during development. Their use was limited to writing helper scripts, assisting with debugging, and improving clarity and grammar in written text.
+Generative AI tools were utilized strictly as supportive instruments during the development and drafting phases of this research. AI assistance was restricted to writing utility scripts, debugging software implementations, and refining the grammatical clarity of the manuscript.
 
-Specifically, AI assistance was used for:
+Specifically, AI tools were leveraged for the following tasks:
 \begin{itemize}
-  \item Writing scripts to set up the experiment pipeline
-  \item Debugging implementation issues in experimental code
-  \item Improving clarity and structure of written explanations
-  \item Assisting with LaTeX formatting and consistency
+  \item Automating boilerplate scripts for the experimental pipeline execution.
+    \author
+  \item Debugging syntax and integration issues within the experimental codebase.
+  \item Enhancing the syntactic clarity, flow, and structure of the written narrative.
+  \item Assisting with automated \LaTeX{} formatting and structural consistency.
 \end{itemize}
 
-All scientific decisions, experimental design choices, and interpretation of results were made independently by the author. AI tools were not used to generate or alter experimental outcomes, results, or conclusions.
+All core scientific decisions, experimental designs, and data interpretations were executed independently by the authors. Generative AI tools were not employed to synthesize, alter, or influence experimental outcomes, empirical data, or scientific conclusions.

@@ -3,8 +3,8 @@
 
   The usage of machine learning is becoming increasingly more widespread in various domains. While state-of-the-art models continue to grow in size and computational cost, Edge AI targets devices with strict limits on processing power and memory. TinyML — the branch of machine learning focused on running models on microcontrollers — exemplifies these constraints.
   Meeting these constraints requires new model designs and careful adaptation of existing architectures. The Mamba architecture, built around State-Space Models, is a promising candidate due to its compact parameterization and strong performance on long-context tasks.
-  In this paper we survey recent efforts to deploy Mamba on microcontrollers. We discuss possible Mamba deployment frameworks. Using TensorFlow Lite Micro we evaluate architecture modifications and optimization strategies tailored to MCU constraints.
-  Our experiments show that while quantization can reduce memory usage, it may increase latency on hardware without efficient INT8 support. We also propose a splitting the model into smaller parts to avoid loop unrolling. Our findings show that Mamba is a promising architecture for TinyML tasks on microcontrollers, but that more work is needed to optimize the State-Space Model implementation for these devices.
+  We discuss possible Mamba deployment frameworks and explain our choice of TensorFlow Lite Micro. Using it we evaluate architecture modifications and optimization strategies tailored to MCU constraints.
+  TODO: Our deployment of a quantized Mamba model uses xx KB peak RAM, which is a xx\% improvement from the previous work of MambaLite-Micro. However, we find that while quantization can reduce memory usage, it may increase latency on hardware without efficient INT8 support. We also propose a splitting the model into smaller parts to avoid loop unrolling, which allows for running larger models. Our findings show that Mamba is a promising architecture for TinyML tasks on microcontrollers, but that more work is needed to optimize the State-Space Model implementation for these devices.
 
   \textbf{Keywords:} TinyML, Mamba, microcontroller, Edge AI
 

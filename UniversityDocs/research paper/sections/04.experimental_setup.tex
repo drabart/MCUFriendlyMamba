@@ -9,16 +9,37 @@ Many datasets have been used and demonstrated as viable for TinyML applications;
 
 These datasets are popular in the TinyML community and represent different data modalities (accelerometer and audio), which enables comparison with prior work such as MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025}.
 
-The HAR dataset consists of recordings of volunteers performing activities of daily living while carrying a waist-mounted smartphone with embedded inertial sensors. The data is preprocessed into 561 features. Following previous work, we pad this input to 570 features and split them into 10 time steps of 57 features each. State-of-the-art models can achieve nearly 98\% accuracy on this dataset \cite{enokiboriRTsfNetDNNModel2024}.
+The HAR dataset consists of recordings of volunteers performing activities of daily living while carrying a waist-mounted smartphone with embedded inertial sensors. The data is preprocessed into 561 features. Following previous work, we pad this input to 570 features and split them into 10 time steps of 57 features each, so that it matches the format used in prior work. State-of-the-art models can achieve nearly 98\% accuracy on this dataset \cite{enokiboriRTsfNetDNNModel2024}.
 
-For the Google Speech Commands dataset we preprocess audio into Mel-frequency cepstral coefficients (MFCCs). We extract 40 MFCC features per time step, producing 51 time steps with 40 features each. While some implementations reduce the number of classes from 35 to 10, we kept all 35 classes to exercise long-sequence behavior. State-of-the-art models can achieve around 96\% accuracy on this dataset \cite{wangEfficientSpeechCommand}.
+For the Google Speech Commands dataset we preprocess audio into Mel-frequency cepstral coefficients (MFCCs). We extract 40 MFCC features per time step, producing xx time steps with 40 features each. While some implementations reduce the number of classes from 35 to 10, we kept all 35 classes to exercise long-sequence behavior. State-of-the-art models can achieve around 96\% accuracy on this dataset \cite{wangEfficientSpeechCommand}.
 
-\subsection{Experimental Design}
+\subsection{Model Training and Conversion}
 
 The experimental design evaluates parts of the deployment pipeline: model architecture, optimization strategies, and deployment choices. We measure both peak memory usage and latency, which are critical for TinyML.
+
+For both datasets we use hyperparameters:
+\begin{itemize}
+  \item Hidden size: 64
+  \item Expansion ratio: 2
+  \item State size: 16
+  \item Batch size: 32
+  \item Learning rate: 0.002
+  \item Epochs: 20
+\end{itemize}
+The size of the model was chosen to be comparable to the MambaLite-Micro implementation. We do not perform extensive hyperparameter search, since our focus is on deployment and optimization rather than maximizing accuracy.
+
+The model is trained using the Adam optimizer with a learning rate of 0.002 and a step learning rate scheduler that reduces the learning rate by half every 10 epochs. We train for 20 epochs, which is sufficient for convergence on these datasets.
+
+We train the model in PyTorch and then convert it to TFLite using the TFLM converter. Then we apply quntization using the AI Edge Quantizer We only evaluate static post-training quantization. We do this with 2000 samples from the training sets of the two datasets. We found that increasing the number of samples further did not significantly change quantization results.
+
+\subsection{Evaluation Metrics and Measurement Procedures}
 
 Measuring peak memory and latency on an embedded device is challenging, but TFLM provides tools to help. For memory usage we use the TFLM memory recorder to measure peak memory and to separate permanently allocated versus temporary buffers. For latency we adapted the default TFLM profiler to measure total inference time and time per operation type, which helps identify bottlenecks and the impact of optimizations.
 
 For accuracy testing we run the full test set on the development PC for both the PyTorch implementation and after conversion to TFLite to ensure conversion does not introduce significant degradation. We also measure accuracy after quantization to quantify its impact.
 
-On the microcontroller we evaluate accuracy on a small subset (50 samples) from each test set due to resource constraints, which provides a sanity check that the final embedded implementation matches expected behavior.
+For testing on the microcontroller we chose the ESP32 (ESP32-WROOM-32), ESP32S3 (ESP32-S3-DevKitC-1-N32R16V). This allows us to focus on one hardware family while still comparing a more basic model (ESP32) to a more powerful one (ESP32-S3). It also allows us to compare with MambaLite-Micro, which also uses ESP32-S3.
+
+On the microcontroller we evaluate accuracy on a small subset (xxx samples) from each test set due to resource constraints, which provides a sanity check that the final embedded implementation matches expected behavior.
+
+The code for training, conversion, and microcontroller benchmarking is available at \url{https://github.com/drabart/MCUFriendlyMamba}.
