@@ -1,0 +1,164 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+Octal Flash Mode Enabled
+For OPI Flash, Use Default Flash Boot Mode
+mode:SLOW_RD, clock div:1
+load:0x3fce2820,len:0x1668
+load:0x403c8700,len:0xec0
+load:0x403cb700,len:0x317c
+entry 0x403c894c
+[0;32mI (33) boot: ESP-IDF v5.5.4 2nd stage bootloader[0m
+[0;32mI (33) boot: compile time Jun  9 2026 21:54:18[0m
+[0;32mI (33) boot: Multicore bootloader[0m
+[0;32mI (34) boot: chip revision: v0.2[0m
+[0;32mI (36) boot: efuse block revision: v1.3[0m
+[0;32mI (40) boot.esp32s3: Boot SPI Speed : 80MHz[0m
+[0;32mI (44) boot.esp32s3: SPI Mode       : SLOW READ[0m
+[0;32mI (48) boot.esp32s3: SPI Flash Size : 2MB[0m
+[0;32mI (52) boot: Enabling RNG early entropy source...[0m
+[0;32mI (56) boot: Partition Table:[0m
+[0;32mI (59) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (65) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (72) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (88) esp_image: segment 0: paddr=00010020 vaddr=3c030020 size=3604ch (221260) map[0m
+[0;32mI (147) esp_image: segment 1: paddr=00046074 vaddr=3fc90e00 size=02d58h ( 11608) load[0m
+[0;32mI (151) esp_image: segment 2: paddr=00048dd4 vaddr=40374000 size=07244h ( 29252) load[0m
+[0;32mI (159) esp_image: segment 3: paddr=00050020 vaddr=42000020 size=29174h (168308) map[0m
+[0;32mI (199) esp_image: segment 4: paddr=0007919c vaddr=4037b244 size=05b64h ( 23396) load[0m
+[0;32mI (206) esp_image: segment 5: paddr=0007ed08 vaddr=50000000 size=00020h (    32) load[0m
+[0;32mI (211) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (212) boot: Disabling RNG early entropy source...[0m
+[0;32mI (225) cpu_start: Multicore app[0m
+[0;32mI (233) cpu_start: GPIO 44 and 43 are used as console UART I/O pins[0m
+[0;32mI (234) cpu_start: Pro cpu start user code[0m
+[0;32mI (234) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (236) app_init: Application information:[0m
+[0;32mI (240) app_init: Project name:     MCU_Mamba[0m
+[0;32mI (244) app_init: App version:      663e6ba-dirty[0m
+[0;32mI (248) app_init: Compile time:     Jun  9 2026 22:47:25[0m
+[0;32mI (253) app_init: ELF file SHA256:  ee794c41a...[0m
+[0;32mI (257) app_init: ESP-IDF:          v5.5.4[0m
+[0;32mI (261) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (265) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (269) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (273) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (279) heap_init: At 3FCB6390 len 00033380 (204 KiB): RAM[0m
+[0;32mI (284) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (290) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (295) heap_init: At 600FE000 len 00001FE8 (7 KiB): RTCRAM[0m
+[0;33mW (300) spi_flash: Octal flash chip is using but qio mode is selected, will automatically switch to Octal mode[0m
+[0;32mI (310) spi_flash: detected chip: mxic (opi)[0m
+[0;32mI (314) spi_flash: flash io: opi_str[0m
+[0;33mW (317) spi_flash: Detected size(32768k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (329) sleep_gpio: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (336) sleep_gpio: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (343) main_task: Started on CPU0[0m
+[0;32mI (353) main_task: Calling app_main()[0m
+
+=== Split Mamba HAR INT8 Inference Setup ===
+✓ TensorFlow Lite Micro initialized
+✓ Shared tensor arena: 120 KB
+✓ Model type: HAR INT8
+✓ Inter-model buffers: 2560 B (int8)
+✓ Models will be loaded on-demand during inference
+
+
+=== Running HAR INT8 inference on 1 test samples ===
+
+
+--- PreSSM Memory Allocation ---
+[RecordingMicroAllocator] Arena allocation total 29596 bytes
+[RecordingMicroAllocator] Arena allocation head 18856 bytes
+[RecordingMicroAllocator] Arena allocation tail 10740 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 948 bytes with alignment overhead (requested 948 bytes for 79 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 400 bytes with alignment overhead (requested 400 bytes for 10 tensors)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor quantization data' used 200 bytes with alignment overhead (requested 200 bytes for 20 allocations)
+[RecordingMicroAllocator] 'Persistent buffer data' used 6936 bytes with alignment overhead (requested 6712 bytes for 54 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 1408 bytes with alignment overhead (requested 1408 bytes for 44 NodeAndRegistration structs)
+
+--- PreSSM Profiling Results ---
+Total time since last lap: 6598 us.
+
+FULLY_CONNECTED took 3905 us.
+RESHAPE took 44 us.
+TRANSPOSE took 241 us.
+PAD took 274 us.
+DEPTHWISE_CONV_2D took 718 us.
+SLICE took 743 us.
+RELU took 673 us.
+
+--- StepSSM Memory Allocation ---
+[RecordingMicroAllocator] Arena allocation total 29596 bytes
+[RecordingMicroAllocator] Arena allocation head 18856 bytes
+[RecordingMicroAllocator] Arena allocation tail 10740 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 948 bytes with alignment overhead (requested 948 bytes for 79 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 400 bytes with alignment overhead (requested 400 bytes for 10 tensors)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor quantization data' used 200 bytes with alignment overhead (requested 200 bytes for 20 allocations)
+[RecordingMicroAllocator] 'Persistent buffer data' used 6936 bytes with alignment overhead (requested 6712 bytes for 54 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 1408 bytes with alignment overhead (requested 1408 bytes for 44 NodeAndRegistration structs)
+
+--- StepSSM Profiling Results ---
+Total time since last lap: 135158 us.
+
+FULLY_CONNECTED took 1895 us.
+RESHAPE took 82 us.
+MUL took 57385 us.
+DEQUANTIZE took 17418 us.
+EXP took 16840 us.
+QUANTIZE took 13409 us.
+ADD took 10696 us.
+SUM took 17433 us.
+
+--- PostSSM Memory Allocation ---
+[RecordingMicroAllocator] Arena allocation total 29596 bytes
+[RecordingMicroAllocator] Arena allocation head 18856 bytes
+[RecordingMicroAllocator] Arena allocation tail 10740 bytes
+[RecordingMicroAllocator] 'TfLiteEvalTensor data' used 948 bytes with alignment overhead (requested 948 bytes for 79 allocations)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor data' used 400 bytes with alignment overhead (requested 400 bytes for 10 tensors)
+[RecordingMicroAllocator] 'Persistent TfLiteTensor quantization data' used 200 bytes with alignment overhead (requested 200 bytes for 20 allocations)
+[RecordingMicroAllocator] 'Persistent buffer data' used 6936 bytes with alignment overhead (requested 6712 bytes for 54 allocations)
+[RecordingMicroAllocator] 'NodeAndRegistration struct' used 1408 bytes with alignment overhead (requested 1408 bytes for 44 NodeAndRegistration structs)
+
+--- PostSSM Profiling Results ---
+Total time since last lap: 3190 us.
+
+FULLY_CONNECTED took 1213 us.
+RESHAPE took 19 us.
+TRANSPOSE took 57 us.
+RELU took 660 us.
+MUL took 443 us.
+SUM took 751 us.
+GATHER_ND took 47 us.
+
+--- Total Profiling Results ---
+Total time for all events: 144946 us.
+
+FULLY_CONNECTED took 7013 us.
+RESHAPE took 145 us.
+TRANSPOSE took 298 us.
+PAD took 274 us.
+DEPTHWISE_CONV_2D took 718 us.
+SLICE took 743 us.
+RELU took 1333 us.
+MUL took 57828 us.
+DEQUANTIZE took 17418 us.
+EXP took 16840 us.
+QUANTIZE took 13409 us.
+ADD took 10696 us.
+SUM took 18184 us.
+GATHER_ND took 47 us.
+
+Stack High Water Mark: 14708 bytes remaining
+
+Total Inference Time: 487.06 ms (487058 µs)
+Sample  1: Predicted WALKING_UPSTAIRS, True LAYING ✗
+
+=== HAR INT8 Results ===
+Correct predictions: 0 / 1
+Accuracy: 0.00%
+
+[0;32mI (873) main_task: Returned from app_main()[0m

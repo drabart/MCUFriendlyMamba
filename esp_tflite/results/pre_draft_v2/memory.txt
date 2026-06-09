@@ -1,0 +1,8 @@
+har float: 74280
+har int8: 48300
+
+split har float: 39736 + 10240
+split har int8: 29596 + 2560
+
+split kws float: 114936 + 52224
+split kws int8: 47356 + 13056

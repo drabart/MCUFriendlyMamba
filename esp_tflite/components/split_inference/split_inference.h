@@ -48,9 +48,9 @@ public:
         printf("✓ Shared tensor arena: %d KB\n", kTensorArenaSize / 1024);
         printf("✓ Model type: %s\n", this->name);
 #if CONFIG_USE_QUANTIZED_MODEL
-        printf("✓ Inter-model buffers: %d KB (int8)\n", (kPreSSMStateSize + kPreSSMGateSize) / 1024);
+        printf("✓ Inter-model buffers: %d B (int8)\n", (kPreSSMStateSize + kPreSSMGateSize));
 #else
-        printf("✓ Inter-model buffers: %d KB (float32)\n", ((kPreSSMStateSize + kPreSSMGateSize) * sizeof(float)) / 1024);
+        printf("✓ Inter-model buffers: %d B (float32)\n", ((kPreSSMStateSize + kPreSSMGateSize) * sizeof(float)));
 #endif
         printf("✓ Models will be loaded on-demand during inference\n");
         printf("\n");
