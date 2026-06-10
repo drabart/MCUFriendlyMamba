@@ -33,7 +33,7 @@ for i in range(len(labels)):
     if part2_vals[i] == 0:
         # Standard model: single uniform bar
         ax.barh(y_pos[i], part1_vals[i], height=0.55, color=colors[0], 
-                label='Standard / Core' if i == len(labels)-1 else "") # Unique label for legend
+                label='TFLite Execution' if i == len(labels)-1 else "") # Unique label for legend
         
         # Text annotation
         ax.text(part1_vals[i] + (max(totals_sorted) * 0.01), i, f"Total: {part1_vals[i]}", 
@@ -41,9 +41,9 @@ for i in range(len(labels)):
     else:
         # Split model: stacked bar
         ax.barh(y_pos[i], part1_vals[i], height=0.55, color=colors[0],
-                label='Standard / Core' if i == len(labels)-1 else "")
+                label='TFLite Execution' if i == len(labels)-1 else "")
         ax.barh(y_pos[i], part2_vals[i], left=part1_vals[i], height=0.55, color=colors[1],
-                label='Pipeline Offload' if i == len(labels)-2 else "") # Unique label for legend
+                label='External buffers' if i == len(labels)-2 else "") # Unique label for legend
         
         # Text annotation showing the math breakdown
         ax.text(totals_sorted[i] + (max(totals_sorted) * 0.01), i, 
@@ -51,8 +51,6 @@ for i in range(len(labels)):
                 va='center', ha='left', fontsize=8.5, color='#333333')
 
 # --- 3. AXES & STYLING ---
-ax.set_title('(a) Comprehensive HAR Model Architecture Performance', 
-             fontsize=12, family='sans-serif', fontweight='bold', loc='left')
 ax.set_xlabel('Execution Metrics', fontsize=11, family='sans-serif')
 ax.set_ylabel('Model Configuration', fontsize=11, family='sans-serif')
 
