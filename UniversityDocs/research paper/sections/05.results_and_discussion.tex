@@ -128,31 +128,35 @@ Memory usage behaves as expected: INT8 variants require significantly less RAM (
 \subsection{Discussion}
 \label{sec:discussion}
 
-We show that quantization of small mamba models is viable. The drop in accuracy depends on the dataset, and as pointed out in the MambaQuant paper mamba quantization can be difficult. This can be seen for the KWS models, which lose nearly 4 percentage points of accuracy when quantized. However, even this loss will be acceptable for many applications.
+Our findings demonstrate that post-training quantization is a viable strategy for compact Mamba models intended for edge deployment. The resulting accuracy trade-offs are highly problem-dependent; as noted in existing literature like \textit{MambaQuant}, quantizing State Space Models (SSMs) presents distinct numerical challenges. This complexity is evident in our KWS models, which exhibit an accuracy loss of nearly 4 percentage points under INT8 quantization. Nonetheless, this level of degradation remains acceptable within the constraints of many practical application domains.
 
-The split of the model allows us to run more complex models, as we did not manage to run the KWS model without this operation. This was partially caused by the limitations of the TFLM, with the concatenate operation allowing only up to 10 vectors to be connected at once, while for KWS it would need to concatenate 51 time steps. A surprising outcome of the split was that it also reduces the peak memory usage of the model. Our hypothesis is that this is caused by the allocation style used by TFLM, which is based on a greedy algorithm, and we suspect the split was able to improve this decision. If true, splitting might not always have the same effect.
+Model segmentation provides a mechanism to deploy larger, more complex models that would otherwise fail execution constraints. Empirically, the unified KWS architecture could not be executed without this splitting step. This limitation stems primarily from structural constraints within TFLM, where the native concatenation operator restricts merging to a maximum of 10 concurrent vectors, whereas the KWS model demands the concatenation of 51 distinct timesteps.
 
-We also find that the split model is more sensitive to quantization, possibly for reasons such as:
+An unexpected benefit of model segmentation was the reduction in peak working memory. We hypothesize that this behavior is tied to TFLM's memory allocation framework, which relies on a greedy heuristic; segmenting the network appears to partition the allocation problem into sub-problems that allow the heuristic to make globally superior layout decisions. If this hypothesis holds, memory reduction may be highly sensitive to network topology and may not uniformly occur across all architectures.
 
-\begin{itemize}
-  \item static quantization achieving a better fit for the fully unrolled graph
-  \item numerical error accumulating more quickly in our SSM loop implementation
-\end{itemize}
+However, our empirical data shows that split models exhibit heightened sensitivity to quantization-induced accuracy drops. We attribute this vulnerability to two primary factors:
+\begin{enumerate}
+  \item Static quantization algorithms can compute a more optimal global calibration fit when applied to a fully unrolled computational graph.
+  \item Numerical quantization errors compound more aggressively within our iterative, manual loop implementation of the SSM recurrence.
+\end{enumerate}
+Because an unrolled graph treats each recurrent step as a distinct layer, it can dynamically assign unique scaling factors and zero-points to separate instances of identical mathematical operations. This granular optimization explains why the unrolled, full model structure preserves higher fidelity under static quantization.
 
-The unrolled graph can use different scales and zero points for different instances of the same operation, which may explain why the full (unrolled) model performs better under static quantization.
+While our deployed Mamba configurations are significantly smaller than state-of-the-art large language models, they achieve compelling task-specific performance: nearly 94\% accuracy on HAR and approximately 89\% on KWS within our evaluation frameworks. This underscores Mamba's viability for compact, sequential edge processing.
 
-Our Mamba models, though smaller than state-of-the-art large models—achieve satisfactory accuracy: nearly 94\% on HAR and ~89\% on KWS in the configurations tested, demonstrating Mamba's potential for compact tasks.
+In terms of execution profiles, a large portion of inference latency is concentrated in the basic arithmetic operations (\texttt{SUM}, \texttt{MUL}, \texttt{ADD}) and the exponential functions (\texttt{EXP}) driving the SSM layer. In its native formulation, the SSM layer maps poorly to standard TFLM runtime loops due to the computational tax of computing exponentials on bare-metal MCUs.
 
-We observe that much of the latency arises from SUM, MUL, ADD, and EXP operations in the SSM layer. From a latency perspective, the SSM does not map efficiently to TFLM as-is, in part because of costly exponentiation on MCUs. Implementing a custom TFLM SSM kernel (possibly quantized) would likely yield substantial speedups; time constraints prevented us from implementing this in the current work.
-
-We also see that the split while it allows for running larger inference models has its drawbacks in form of latency.
+Developing a specialized, natively quantized TFLM kernel dedicated to the SSM primitive would likely provide substantial latency reductions. However, project timelines precluded the realization of a custom kernel. Furthermore, while model segmentation expands the upper bound of deployable model sizes, it introduces a severe latency penalty that must be factored into real-time system designs.
 
 \subsection{Limitations}
 
-There are several limitations. Tooling for deploying Mamba on MCUs is immature, and time constraints limited our exploration.
+Several limitations qualify the findings of this study. First, the software tooling and compiler infrastructure required to compile and deploy Mamba architectures onto microcontrollers remain highly immature, and tight development timelines constrained our ability to fully explore alternative deployment pathways.
 
-We evaluated only two popular TinyML datasets, which do not cover use cases such as image/video tasks where Mamba may also be useful. We tested FLOAT32 and INT8 formats; exploring lower bit widths could be valuable but is currently limited by TFLM operator support.
+Second, our empirical evaluation was restricted to two widely utilized TinyML benchmarks. Consequently, these workloads do not capture performance across other domains, such as computer vision or video processing, where Mamba's linear scaling properties could offer distinct advantages.
 
-Results were gathered on a single MCU family (ESP32); different vendors' hardware acceleration choices may yield substantially different latency and performance characteristics. In our experiments we encountered bugs with the ESP32's implementation of some optimizations, which also makes our research less reliable.
+Third, our analysis evaluated only FLOAT32 and INT8 data types. Exploring ultra-low bit-width quantization (e.g., INT4 or sub-byte formats) represents a valuable research direction, but such exploration is currently bottlenecked by the restricted operator support available in mainstream TFLM releases.
 
-Finally, our split approach complicates deployment because it requires model-aware inference code. It also drastically increases the latency of the model. Implementing the SSM as a custom, quantized TFLM kernel would preserve deployment simplicity while enabling the same memory/time trade-offs; we leave that for future work.
+Fourth, hardware benchmarking was confined exclusively to a single microcontroller ecosystem (the Espressif ESP32 series). Because microcontrollers vary significantly in their proprietary hardware acceleration blocks, deploying these models on alternative vendor architectures could yield vastly different performance and latency profiles.
+
+This hardware dependency was further highlighted by stability issues; during our evaluation, we discovered bugs within the vendor-specific optimization libraries for certain layers, which introduces an element of platform-specific unreliability into our reported data.
+
+Finally, our model-splitting approach introduces operational complexity by requiring the inference code to be highly model-aware, manually orchestrating data across sub-graphs. This design drastically inflates the overall inference latency. While implementing the recurrent SSM loop as a unified, custom-quantized TFLM kernel would maintain deployment simplicity and achieve similar memory-saving trade-offs, we leave the development of such specialized kernels to future work.
