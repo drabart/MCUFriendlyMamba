@@ -11,7 +11,7 @@ These datasets are popular in the TinyML community and represent different data 
 
 The HAR dataset consists of recordings of volunteers performing activities of daily living while carrying a waist-mounted smartphone with embedded inertial sensors. The data is preprocessed into 561 features. Following previous work, we pad this input to 570 features and split them into 10 time steps of 57 features each, so that it matches the format used in prior work. State-of-the-art models can achieve nearly 98\% accuracy on this dataset \cite{enokiboriRTsfNetDNNModel2024}.
 
-For the Google Speech Commands dataset we preprocess audio into Mel-frequency cepstral coefficients (MFCCs). We extract 40 MFCC features per time step, producing xx time steps with 40 features each. While some implementations reduce the number of classes from 35 to 10, we kept all 35 classes to exercise long-sequence behavior. State-of-the-art models can achieve around 96\% accuracy on this dataset \cite{wangEfficientSpeechCommand}.
+For the Google Speech Commands dataset we preprocess audio into Mel-frequency cepstral coefficients (MFCCs). We extract 40 MFCC features per time step, producing 51 time steps with 40 features each. While some implementations reduce the number of classes from 35 to 10, we kept all 35 classes to exercise long-sequence behavior. State-of-the-art models can achieve around 96\% accuracy on this dataset \cite{wangEfficientSpeechCommand}.
 
 \subsection{Model Training and Conversion}
 
@@ -40,6 +40,6 @@ For accuracy testing we run the full test set on the development PC for both the
 
 For testing on the microcontroller we chose the ESP32 (ESP32-WROOM-32), ESP32S3 (ESP32-S3-DevKitC-1-N32R16V). This allows us to focus on one hardware family while still comparing a more basic model (ESP32) to a more powerful one (ESP32-S3). It also allows us to compare with MambaLite-Micro, which also uses ESP32-S3.
 
-On the microcontroller we evaluate accuracy on a small subset (xxx samples) from each test set due to resource constraints, which provides a sanity check that the final embedded implementation matches expected behavior.
+On the microcontroller we evaluate accuracy on a small subset (50 samples) from each test set due to resource constraints, which provides a sanity check that the final embedded implementation matches expected behavior.
 
 The code for training, conversion, and microcontroller benchmarking is available at \url{https://github.com/drabart/MCUFriendlyMamba}.
