@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import torch
 import torch.nn as nn
 
+USE_EXP = True
+
 
 class SelectiveScanSequential(nn.Module):
     """Selective Scan operator optimized for TFLite conversion and quantization."""
@@ -27,9 +29,12 @@ class SelectiveScanSequential(nn.Module):
 
         dt = self.x_proj_dt(state)
         dt = self.dt_proj(dt)
-        # dt = F.softplus(dt)
-        dt = F.relu(dt)
+        if USE_EXP:
+            dt = F.softplus(dt)
+        else:
+            dt = F.relu(dt)
 
+        # A is treated as a "pseudo-constant" in the TFLite conversion
         A = -torch.exp(self.A_log)
 
         n = A.shape[1]
@@ -66,7 +71,16 @@ class SelectiveScanSequential(nn.Module):
             u_t = u_expanded[:, t]          # (b, e, 1)
 
             # Compute A_bar and B_bar using explicit broadcasting
-            A_bar = torch.exp(delta_t * A_reshaped)    # (b, e, n)
+            # if USE_EXP:
+            #     A_bar = torch.exp(delta_t * A_reshaped)    # (b, e, n)
+            # else:
+            #     A_bar = 1.0 + delta_t * A_reshaped          # (b, e, n)
+            A_bar = torch.exp(delta_t * A_reshaped)
+
+            # TESTED, but does not work
+            # x = delta_t * A_reshaped
+            # A_bar = 1.0 + x + (x**2 / 2.0) + (x**3 / 6.0) + (x**4 / 24.0) + (x**5 / 120.0) + (x**6 / 720.0) # (b, e, n)
+
             B_bar = delta_t * B_t           # (b, e, n)
 
             # Update hidden state
@@ -117,15 +131,19 @@ class MambaBlock(nn.Module):
         state = state.transpose(1, 2)
         state = self.conv1d(state)[:, :, :l]
         
-        # state = F.silu(state)
-        state = F.relu(state)
+        if USE_EXP:
+            state = F.silu(state)
+        else:
+            state = F.relu(state)
         
         state = state.transpose(1, 2)
 
         y = self.ssm(state)
 
-        # gate = F.silu(gate)
-        gate = F.relu(gate)
+        if USE_EXP:
+            gate = F.silu(gate)
+        else:
+            gate = F.relu(gate)
         y = y * gate
 
         return self.out_proj(y)

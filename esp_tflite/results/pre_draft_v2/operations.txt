@@ -13,6 +13,38 @@ ADD took 1710 us.
 CONCATENATION took 72 us.
 GATHER_ND took 51 us.
 
+float opt:
+FULLY_CONNECTED took 15081 us.
+RESHAPE took 396 us.
+TRANSPOSE took 314 us.
+PAD took 253 us.
+DEPTHWISE_CONV_2D took 4659 us.
+SLICE took 1625 us.
+RELU took 67 us.
+MUL took 10828 us.
+SUM took 18220 us.
+ADD took 3353 us.
+CONCATENATION took 74 us.
+GATHER_ND took 51 us.
+
+float noopt:
+FULLY_CONNECTED took 15102 us.
+RESHAPE took 453 us.
+TRANSPOSE took 310 us.
+PAD took 251 us.
+DEPTHWISE_CONV_2D took 4666 us.
+SLICE took 1654 us.
+LOGISTIC took 4338 us.
+MUL took 11164 us.
+EXP took 25890 us.
+ADD took 1874 us.
+LOG took 1780 us.
+GREATER took 281 us.
+SELECT_V2 took 143 us.
+SUM took 18258 us.
+CONCATENATION took 72 us.
+GATHER_ND took 51 us.
+
 int8_ansi:
 FULLY_CONNECTED took 25595 us.
 RESHAPE took 250 us.

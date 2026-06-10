@@ -1,3 +1,5 @@
+har float opt: 54921 / 55539
+har float noopt: 86287 / 86995
 har float: 68562 / 69199
 har int8 ansi: 170888 / 171627
 har int8: 135183 / 135925

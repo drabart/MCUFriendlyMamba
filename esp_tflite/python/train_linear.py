@@ -8,9 +8,19 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 import json
 import os
+import random
+import numpy as np
 
 from data import load_har_data, load_speechcommands_data
 from models import HARMamba
+
+def set_seed(seed: int):
+    """Sets the seed for reproducibility across multiple libraries."""
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
 
 def train(model, device, train_loader, optimizer, epoch, print_stats=False, log_interval=10, dry_run=False):
     """Train for one epoch."""
@@ -124,6 +134,8 @@ def main():
         help="Model filename (default: best_model_<dataset>.pt, e.g., best_model_har.pt)",
     )
     args = parser.parse_args()
+
+    set_seed(42)
 
     os.makedirs(args.output_dir, exist_ok=True)
 

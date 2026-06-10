@@ -184,7 +184,7 @@ if [[ "$RUN_CONVERT" -eq 1 ]]; then
         --d-model "$D_MODEL" \
         --output-float "$TFLITE_FLOAT" \
         --output-quantized "$TFLITE_INT8" \
-        --calibration-samples 500
+        --calibration-samples 2000
 
     [ -f "$TFLITE_FLOAT" ] || print_error "TFLite float model not created"
     [ -f "$TFLITE_INT8" ] || print_error "TFLite int8 model not created"
