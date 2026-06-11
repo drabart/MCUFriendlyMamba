@@ -127,14 +127,15 @@ def convert_stepwise_models(pytorch_model_path, output_dir="models"):
     os.makedirs(output_dir, exist_ok=True)
 
     # Load metadata to get model architecture
-    metadata = load_model_metadata(pytorch_model_path)
-    input_dim = metadata.get('input_dim', 57)
-    d_model = metadata.get('d_model', 64)
-    output_size = metadata.get('output_size', 6)
-    seq_len = metadata.get('input_shape', [1, 10, 57])[1]  # Sequence length
+    metadata = load_model_metadata(pytorch_model_path, dataset)
+    input_dim = metadata.get('input_dim')
+    d_model = metadata.get('d_model')
+    output_size = metadata.get('output_size')
+    seq_len = metadata.get('input_shape')[1]  # Sequence length
     d_inner = d_model * 2  # Standard expansion
     d_state = 16
     d_conv = 4
+    dt_size = 8
     
     print(f"Using model architecture from metadata:")
     print(f"  input_dim={input_dim}, d_model={d_model}, output_size={output_size}")
@@ -142,7 +143,7 @@ def convert_stepwise_models(pytorch_model_path, output_dir="models"):
 
     # Create models with correct dimensions
     pre_ssm = PreSSMModule(input_dim=input_dim, d_model=d_model, d_inner=d_inner, d_conv=d_conv)
-    step_ssm = StepSSMModule(d_inner=d_inner, d_state=d_state)
+    step_ssm = StepSSMModule(d_inner=d_inner, d_state=d_state, dt_size=dt_size)
     post_ssm = PostSSMModule(d_model=d_model, d_inner=d_inner, output_size=output_size)
 
     # Load weights

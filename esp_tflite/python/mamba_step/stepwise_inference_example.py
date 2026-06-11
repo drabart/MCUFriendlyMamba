@@ -22,7 +22,7 @@ from models import HARMamba
 from data import load_har_data, load_speechcommands_data
 
 
-def load_model_metadata(model_path, dataset="har"):
+def load_model_metadata(model_path, dataset):
     """Load metadata_{dataset}.json from the model directory to get architecture params."""
     model_dir = Path(model_path).parent
     metadata_file = model_dir / f"metadata_{dataset}.json"
@@ -59,7 +59,7 @@ class PreSSMModule(nn.Module):
 
 class StepSSMModule(nn.Module):
     """Single-timestep SSM: takes hidden state as input, returns output and updated state."""
-    def __init__(self, d_inner=128, d_state=16, dt_size=8):
+    def __init__(self, d_inner, d_state, dt_size):
         super().__init__()
         self.d_inner = d_inner
         self.d_state = d_state
@@ -109,7 +109,7 @@ class StepSSMModule(nn.Module):
 
 class PostSSMModule(nn.Module):
     """Post-SSM: gate, out_proj, pool, classify."""
-    def __init__(self, d_model=64, d_inner=128, output_size=6):
+    def __init__(self, d_model, d_inner, output_size):
         super().__init__()
         self.out_proj = nn.Linear(d_inner, d_model, bias=False)
         self.pool = nn.AdaptiveAvgPool1d(1)
@@ -228,10 +228,10 @@ def main():
     
     # Load metadata to get model architecture
     metadata = load_model_metadata(str(model_path), args.dataset)
-    input_dim = metadata.get('input_dim', 57)
-    d_model = metadata.get('d_model', 64)
-    output_size = metadata.get('output_size', 6)
-    seq_len = metadata.get('input_shape', [1, 10, 57])[1]  # Sequence length
+    input_dim = metadata.get('input_dim')
+    d_model = metadata.get('d_model')
+    output_size = metadata.get('output_size')
+    seq_len = metadata.get('input_shape')[1]  # Sequence length
     d_inner = d_model * 2  # Standard expansion
     d_state = 16
     d_conv = 4

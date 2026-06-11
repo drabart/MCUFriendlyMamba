@@ -458,7 +458,7 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
         elif "_har" in model_filename:
             dataset = "har"
         
-        metadata = load_model_metadata(pytorch_model_path)
+        metadata = load_model_metadata(pytorch_model_path, dataset)
         d_inner = metadata.get('d_model', 64) * 2
         d_state = 16
     else:
@@ -488,7 +488,7 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
         train_ds, _, _ = load_har_data(dataset_dir)
         print(f"✓ Loaded HAR dataset with {len(train_ds)} training samples")
     else:  # kws
-        train_ds, _, _ = load_speechcommands_data(dataset_dir)
+        train_ds, _, _ = load_speechcommands_data(dataset_dir, "../models/audio_preprocessor_float.tflite")
         print(f"✓ Loaded SpeechCommands (KWS) dataset with {len(train_ds)} training samples")
     
     # ========== PreSSM Quantization ==========
@@ -554,7 +554,7 @@ def quantize_stepwise_models(float_model_dir="tflite_models",
     if dataset == "har":
         _, _, test_ds = load_har_data(dataset_dir)
     else:  # kws
-        _, _, test_ds = load_speechcommands_data(dataset_dir)
+        _, _, test_ds = load_speechcommands_data(dataset_dir, "../models/audio_preprocessor_float.tflite")
     _evaluate_quantized_split_accuracy(pre_ssm_quant, step_ssm_quant, post_ssm_quant, test_ds)
 
 

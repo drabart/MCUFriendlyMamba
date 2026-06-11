@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch
 import torch.nn as nn
 
-USE_EXP = True
+USE_EXP = False
 
 
 class SelectiveScanSequential(nn.Module):
