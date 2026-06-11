@@ -36,7 +36,7 @@ def load_model_metadata(model_path, dataset="har"):
 
 class PreSSMModule(nn.Module):
     """Pre-SSM: input projection through conv1d."""
-    def __init__(self, input_dim=57, d_model=64, d_inner=128, d_conv=4):
+    def __init__(self, input_dim, d_model, d_inner, d_conv):
         super().__init__()
         self.linear_in = nn.Linear(input_dim, d_model, bias=False)
         self.state_proj = nn.Linear(d_model, d_inner, bias=False)
@@ -255,7 +255,7 @@ def main():
     if args.dataset == "har":
         _, _, test_ds = load_har_data(str(data_dir))
     else:  # kws
-        _, _, test_ds = load_speechcommands_data(str(data_dir))
+        _, _, test_ds = load_speechcommands_data(str(data_dir), "../models/audio_preprocessor_float.tflite")
     
     # Load reference model with correct dimensions
     har_model = HARMamba(input_dim=input_dim, d_model=d_model, d_state=d_state, d_conv=d_conv, 

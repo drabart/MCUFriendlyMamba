@@ -1,3 +1,5 @@
+import ctypes
+
 import pandas as pd
 import torch
 import torchaudio
@@ -10,6 +12,9 @@ import os
 import hashlib
 import numpy as np
 import tensorflow as tf
+from ai_edge_litert.interpreter import Interpreter
+
+from tflite_micro.python.tflite_micro import runtime
 
 
 def load_mnist_data(data_dir):
@@ -70,7 +75,7 @@ def _preprocessing_hash(preprocessor_path):
 
 def load_speechcommands_data(data_dir, preprocessor_tflite_path, cache_dir=None):
     """
-    Load Speech Commands v2 using Google's micro_speech TFLite preprocessor model.
+    Load Speech Commands v2 using Google's micro_speech LiteRT preprocessor model.
     Each sample is returned as X ∈ ℝ^(49 × 40) in INT8 format, perfectly matching
     the microcontroller's on-device tensor inputs.
 
@@ -83,7 +88,7 @@ def load_speechcommands_data(data_dir, preprocessor_tflite_path, cache_dir=None)
     """
     if not os.path.exists(preprocessor_tflite_path):
         raise FileNotFoundError(
-            f"Preprocessor TFLite file not found at: {preprocessor_tflite_path}. "
+            f"Preprocessor LiteRT file not found at: {preprocessor_tflite_path}. "
             "Please run the micro_speech audio_preprocessor script first to generate it."
         )
 
@@ -93,49 +98,46 @@ def load_speechcommands_data(data_dir, preprocessor_tflite_path, cache_dir=None)
     param_tag = _preprocessing_hash(preprocessor_tflite_path)
     versioned_cache = os.path.join(cache_dir, param_tag)
 
-    # Initialize the TFLite Interpreter for the feature extractor
-    interpreter = tf.lite.Interpreter(model_path=preprocessor_tflite_path)
-    interpreter.allocate_tensors()
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
+    # 1. Initialize the modern CompiledModel (Defaults to CPU for data preprocessing)
+    interpreter = runtime.Interpreter.from_file(
+        preprocessor_tflite_path,
+    )
 
     def preprocess(waveform, sample_rate):
-        # 1. Handle Resampling
+        # Handle Resampling
         if sample_rate != TARGET_SAMPLE_RATE:
             waveform = torchaudio.transforms.Resample(
                 sample_rate, TARGET_SAMPLE_RATE
             )(waveform)
             
-        # 2. Pad or truncate to exactly 1 second (16000 samples)
+        # Pad or truncate to exactly 1 second (16000 samples)
         length = waveform.shape[-1]
         if length < SAMPLE_LENGTH:
             waveform = torch.nn.functional.pad(waveform, (0, SAMPLE_LENGTH - length))
         else:
             waveform = waveform[..., :SAMPLE_LENGTH]
             
-        # 3. Convert Float32 audio (-1.0 to 1.0) into INT16 samples (-32768 to 32767)
-        # matching the micro_speech WAV loading strategy
+        # Convert Float32 audio (-1.0 to 1.0) into INT16 samples (-32768 to 32767)
         audio_np = waveform.squeeze(0).numpy()
-        audio_int16 = np.clip(audio_np * 32768.0, -32768, 32767).astype(np.int16)
+        audio_int16 = (audio_np * 32768.0).astype(np.int16)
 
-        # 4. Slice into 49 frames matching window_size=30ms (480 samples) and stride=20ms (320 samples)
         window_size = 480
         hop_length = 320
         features = []
 
         for i in range(0, len(audio_int16) - window_size + 1, hop_length):
             frame = audio_int16[i : i + window_size]
-            frame = np.reshape(frame, (1, window_size))
+            frame = np.reshape(frame, (1, window_size)) # (1, 480)
             
-            # Run the frame through Google's custom TFLite Signal Pipeline
-            interpreter.set_tensor(input_details[0]['index'], frame)
+            # 2. Use the legacy set/get methods
+            interpreter.set_input(frame, 0)
             interpreter.invoke()
             
-            # Extract the 40 int8 features generated for this specific window
-            feature_frame = interpreter.get_tensor(output_details[0]['index'])
+            feature_frame = interpreter.get_output(0)
             features.append(feature_frame.flatten())
 
-        # Returns a torch tensor of shape (49, 40)
+        interpreter.reset()
+
         return torch.tensor(np.array(features), dtype=torch.float32)
 
     class SpeechCommandsWrapper(torch.utils.data.Dataset):

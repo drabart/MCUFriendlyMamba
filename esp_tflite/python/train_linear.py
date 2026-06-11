@@ -32,6 +32,7 @@ def train(model, device, train_loader, optimizer, epoch, print_stats=False, log_
         output = model(data)
         loss = F.cross_entropy(output, target)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
         if print_stats and batch_idx % log_interval == 0:
             print(
@@ -66,7 +67,7 @@ def test(model, device, test_loader, print_stats=False):
 
     if print_stats:
         print(
-            "Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n".format(
+            "Run evaluation: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)".format(
                 test_loss,
                 correct,
                 len(test_loader.dataset),
@@ -217,7 +218,7 @@ def main():
         val_accuracy = test(model, device, val_loader, print_stats=True)
         epoch_elapsed = time.perf_counter() - epoch_start
         epoch_times.append(epoch_elapsed)
-        print(f"Epoch {epoch} elapsed time: {epoch_elapsed:.2f} s")
+        print(f"Epoch {epoch} elapsed time: {epoch_elapsed:.2f} s\n")
         
         if val_accuracy > best_accuracy:
             best_accuracy = val_accuracy

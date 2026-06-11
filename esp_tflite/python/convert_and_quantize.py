@@ -288,7 +288,7 @@ def convert_and_quantize(
         output_size = 6
         resolved_input_shape = tuple(input_shape) if input_shape is not None else (1, 10, 57)
     else:
-        train_ds, _, test_ds = load_speechcommands_data(dataset_dir)
+        train_ds, _, test_ds = load_speechcommands_data(dataset_dir, "models/audio_preprocessor_float.tflite")
         display_name = "KWS (SpeechCommands)"
         # infer input shape from first sample in train set
         sample_x, _ = train_ds[0]
