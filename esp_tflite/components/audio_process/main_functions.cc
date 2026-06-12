@@ -18,13 +18,11 @@ limitations under the License.
 #include <iterator>
 
 #include "main_functions.h"
+#include "esp_log.h"
 
 #include "audio_provider.h"
-#include "command_responder.h"
 #include "feature_provider.h"
 #include "micro_model_settings.h"
-#include "model.h"
-#include "recognize_commands.h"
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/core/c/common.h"
@@ -32,143 +30,133 @@ limitations under the License.
 #include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 
-// Globals, used for compatibility with Arduino-style sketches.
-namespace {
-const tflite::Model* model = nullptr;
-tflite::MicroInterpreter* interpreter = nullptr;
-TfLiteTensor* model_input = nullptr;
-FeatureProvider* feature_provider = nullptr;
-RecognizeCommands* recognizer = nullptr;
-int32_t previous_time = 0;
+#include "split_inference.h"
+#include "kws_test_samples.h"
 
-// Create an area of memory to use for input, output, and intermediate arrays.
-// The size of this will depend on the model you're using, and may need to be
-// determined by experimentation.
-constexpr int kTensorArenaSize = 30 * 1024;
-uint8_t tensor_arena[kTensorArenaSize];
-int8_t feature_buffer[kFeatureElementCount];
-int8_t* model_input_buffer = nullptr;
-}  // namespace
+#if CONFIG_USE_QUANTIZED_MODEL
+#include "model_pre_ssm_int8_kws_model_data.h"
+#include "model_step_ssm_int8_kws_model_data.h"
+#include "model_post_ssm_int8_kws_model_data.h"
+#else
+#include "model_pre_ssm_kws_model_data.h"
+#include "model_step_ssm_kws_model_data.h"
+#include "model_post_ssm_kws_model_data.h"
+#endif
+
+// Globals, used for compatibility with Arduino-style sketches.
+namespace
+{
+    FeatureProvider *feature_provider = nullptr;
+    int32_t previous_time = 0;
+
+    float feature_buffer[kFeatureElementCount];
+} // namespace
+
+// Keyword labels for output (35 speech command keywords)
+const char *KEYWORD_LABELS[] = {
+    "backward", "bed", "bird", "cat", "dog", "down", "eight", "five", "follow",
+    "forward", "four", "go", "happy", "house", "learn", "left", "marvin", "nine",
+    "no", "off", "on", "one", "right", "seven", "sheila", "six", "stop", "three",
+    "tree", "two", "up", "visual", "wow", "yes", "zero"};
+
+#if CONFIG_USE_QUANTIZED_MODEL
+using model_tensor_t = int8_t;
+constexpr const char *kModelTypeName = "KWS INT8";
+#else
+using model_tensor_t = float;
+constexpr const char *kModelTypeName = "KWS Float32";
+#endif
+
+// ========== Dimension Constants ==========
+constexpr int kNumFeatures = 40;  // MFCC feature dimension
+constexpr int kNumTimesteps = 49; // Sequence length (time frames)
+constexpr int kDInner = 128;      // SSM inner dimension
+constexpr int kDState = 16;       // SSM state space dimension
+constexpr int kNumClasses = 35;   // Keyword classification classes
+
+SplitInference<kNumTimesteps, kDInner, kDState, kNumFeatures, kNumClasses> model_inference;
 
 // The name of this function is important for Arduino compatibility.
-void setup() {
-  // Map the model into a usable data structure. This doesn't involve any
-  // copying or parsing, it's a very lightweight operation.
-  model = tflite::GetModel(g_model);
-  if (model->version() != TFLITE_SCHEMA_VERSION) {
-    MicroPrintf("Model provided is schema version %d not equal to supported "
-                "version %d.", model->version(), TFLITE_SCHEMA_VERSION);
-    return;
-  }
+void setup()
+{
+#if CONFIG_USE_QUANTIZED_MODEL
+    model_inference.setup_split_model_inference(
+        g_model_pre_ssm_int8_kws_model_data,
+        g_model_step_ssm_int8_kws_model_data,
+        g_model_post_ssm_int8_kws_model_data,
+        kModelTypeName);
+#else
+    model_inference.setup_split_model_inference(
+        g_model_pre_ssm_kws_model_data,
+        g_model_step_ssm_kws_model_data,
+        g_model_post_ssm_kws_model_data,
+        kModelTypeName);
+#endif
 
-  // Pull in only the operation implementations we need.
-  // This relies on a complete list of all the ops needed by this graph.
-  // An easier approach is to just use the AllOpsResolver, but this will
-  // incur some penalty in code space for op implementations that are not
-  // needed by this graph.
-  //
-  // tflite::AllOpsResolver resolver;
-  // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::MicroMutableOpResolver<4> micro_op_resolver;
-  if (micro_op_resolver.AddDepthwiseConv2D() != kTfLiteOk) {
-    return;
-  }
-  if (micro_op_resolver.AddFullyConnected() != kTfLiteOk) {
-    return;
-  }
-  if (micro_op_resolver.AddSoftmax() != kTfLiteOk) {
-    return;
-  }
-  if (micro_op_resolver.AddReshape() != kTfLiteOk) {
-    return;
-  }
+    static FeatureProvider static_feature_provider(kFeatureElementCount,
+                                                   feature_buffer);
+    feature_provider = &static_feature_provider;
 
-  // Build an interpreter to run the model with.
-  static tflite::MicroInterpreter static_interpreter(
-      model, micro_op_resolver, tensor_arena, kTensorArenaSize);
-  interpreter = &static_interpreter;
-
-  // Allocate memory from the tensor_arena for the model's tensors.
-  TfLiteStatus allocate_status = interpreter->AllocateTensors();
-  if (allocate_status != kTfLiteOk) {
-    MicroPrintf("AllocateTensors() failed");
-    return;
-  }
-
-  // Get information about the memory area to use for the model's input.
-  model_input = interpreter->input(0);
-  if ((model_input->dims->size != 2) || (model_input->dims->data[0] != 1) ||
-      (model_input->dims->data[1] !=
-       (kFeatureCount * kFeatureSize)) ||
-      (model_input->type != kTfLiteInt8)) {
-    MicroPrintf("Bad input tensor parameters in model");
-    return;
-  }
-  model_input_buffer = tflite::GetTensorData<int8_t>(model_input);
-
-  // Prepare to access the audio spectrograms from a microphone or other source
-  // that will provide the inputs to the neural network.
-  // NOLINTNEXTLINE(runtime-global-variables)
-  static FeatureProvider static_feature_provider(kFeatureElementCount,
-                                                 feature_buffer);
-  feature_provider = &static_feature_provider;
-
-  static RecognizeCommands static_recognizer;
-  recognizer = &static_recognizer;
-
-  previous_time = 0;
+    previous_time = 0;
 }
 
 // The name of this function is important for Arduino compatibility.
-void loop() {
-  // Fetch the spectrogram for the current time.
-  const int32_t current_time = LatestAudioTimestamp();
-  int how_many_new_slices = 0;
-  TfLiteStatus feature_status = feature_provider->PopulateFeatureData(
-      previous_time, current_time, &how_many_new_slices);
-  if (feature_status != kTfLiteOk) {
-    MicroPrintf( "Feature generation failed");
-    return;
-  }
-  previous_time = current_time;
-  // If no new audio samples have been received since last time, don't bother
-  // running the network model.
-  if (how_many_new_slices == 0) {
-    return;
-  }
+void loop()
+{
+    // // Fetch the spectrogram for the current time.
+    // const int32_t current_time = LatestAudioTimestamp();
+    // int how_many_new_slices = 0;
+    // TfLiteStatus feature_status = feature_provider->PopulateFeatureData(
+    //     previous_time, current_time, &how_many_new_slices);
+    // if (feature_status != kTfLiteOk)
+    // {
+    //     MicroPrintf("Feature generation failed");
+    //     return;
+    // }
+    // previous_time = current_time;
+    // // If no new audio samples have been received since last time, don't bother
+    // // running the network model.
+    // if (how_many_new_slices == 0)
+    // {
+    //     return;
+    // }
 
-  // Copy feature buffer to input tensor
-  for (int i = 0; i < kFeatureElementCount; i++) {
-    model_input_buffer[i] = feature_buffer[i];
-  }
+    int sample_count = 50;
+    int correct_predictions = 0;
 
-  // Run the model on the spectrogram input and make sure it succeeds.
-  TfLiteStatus invoke_status = interpreter->Invoke();
-  if (invoke_status != kTfLiteOk) {
-    MicroPrintf( "Invoke failed");
-    return;
-  }
+    for (int i = 0; i < sample_count; i++)
+    {
+        int predicted_class = -1;
 
-  // Obtain a pointer to the output tensor
-  TfLiteTensor* output = interpreter->output(0);
+        if (!model_inference.run_split_model_inference(kws_test_data[i], &predicted_class))
+        {
+            printf("Inference failed\n");
+        }
 
-  
-  float output_scale = output->params.scale;
-  int output_zero_point = output->params.zero_point;
-  int max_idx = 0;
-  float max_result = 0.0;
-  // Dequantize output values and find the max
-  for (int i = 0; i < kCategoryCount; i++) {
-    float current_result =
-        (tflite::GetTensorData<int8_t>(output)[i] - output_zero_point) *
-        output_scale;
-    if (current_result > max_result) {
-      max_result = current_result; // update max result
-      max_idx = i; // update category
+        if (predicted_class != kws_test_labels[i])
+        {
+            printf("Sample %2d: Predicted %s, True %s ✗\n",
+                   i + 1, KEYWORD_LABELS[predicted_class], KEYWORD_LABELS[kws_test_labels[i]]);
+        }
+        else
+        {
+            correct_predictions++;
+        }
     }
-  }
-  // if (max_result > 0.8f) {
-    MicroPrintf("Detected %7s, score: %.2f", kCategoryLabels[max_idx],
-        static_cast<double>(max_result));
-  // }
+
+    printf("Correct predictions: %d/%d\n", correct_predictions, sample_count);
+
+    exit(0);
+
+    // int predicted_classes[3];
+    // float confidences[3];
+    // if (!model_inference.run_split_model_inference_top3(feature_buffer, predicted_classes, confidences))
+    // {
+    //     printf("Inference failed\n");
+    // }
+
+    // printf("TOP 3: %s (%.2f), %s (%.2f), %s (%.2f)\n",
+    //        KEYWORD_LABELS[predicted_classes[0]], confidences[0],
+    //        KEYWORD_LABELS[predicted_classes[1]], confidences[1],
+    //        KEYWORD_LABELS[predicted_classes[2]], confidences[2]);
 }

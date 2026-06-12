@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Export 50 random samples from the KWS (Speech Commands) test set as C const arrays.
+Export random samples from the KWS (Speech Commands) test set as C const arrays.
 Useful for testing on embedded devices like ESP32.
 """
 
@@ -13,17 +13,17 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 from data import load_speechcommands_data, get_data_output_size, CLASSES
 
-def export_kws_samples_to_c(data_dir, num_samples=50, output_file="kws_test_samples.h"):
+def export_kws_samples_to_c(data_dir, num_samples, output_file="kws_test_samples.h"):
     """
     Load random samples from KWS test set and export as C const array.
     
     Args:
         data_dir: Directory containing SpeechCommands dataset
-        num_samples: Number of random samples to extract (default: 50)
+        num_samples: Number of random samples to extract
         output_file: Output header file name
     """
     print(f"Loading KWS dataset from {data_dir}...")
-    _, _, test_ds = load_speechcommands_data(data_dir)
+    _, _, test_ds = load_speechcommands_data(data_dir, "models/audio_preprocessor_float.tflite")
     
     total_samples = len(test_ds)
     print(f"Total test samples available: {total_samples}")
@@ -38,12 +38,12 @@ def export_kws_samples_to_c(data_dir, num_samples=50, output_file="kws_test_samp
     
     for idx in selected_indices:
         data, label = test_ds[idx]
-        # data shape: (51, 40) - T x F format (time steps x MFCC features)
-        data_list.append(data.numpy().flatten())  # Flatten to 1D array (2040 values)
+        # data shape: (49, 40) - T x F format (time steps x MFCC features)
+        data_list.append(data.numpy().flatten())  # Flatten to 1D array (1960 values)
         labels_list.append(int(label))
     
     # Convert to numpy arrays
-    data_array = np.array(data_list, dtype=np.float32)  # Shape: (50, 2040)
+    data_array = np.array(data_list, dtype=np.float32)  # Shape: (100, 1960)
     labels_array = np.array(labels_list, dtype=np.uint8)
     
     print(f"Data shape: {data_array.shape}")
@@ -72,10 +72,10 @@ def export_kws_samples_to_c(data_dir, num_samples=50, output_file="kws_test_samp
         
         # Write data constant array
         f.write(f"// KWS test samples - {len(selected_indices)} random samples\n")
-        f.write(f"// Each sample: 51 time frames × 40 MFCC features = 2040 float values\n")
-        f.write(f"// Total: {len(selected_indices)} × 2040 = {len(selected_indices) * 2040} float values\n\n")
+        f.write(f"// Each sample: 49 time frames × 40 MFCC features = 1960 float values\n")
+        f.write(f"// Total: {len(selected_indices)} × 1960 = {len(selected_indices) * 1960} float values\n\n")
         
-        f.write(f"const float kws_test_data[{len(selected_indices)}][2040] = {{\n")
+        f.write(f"const float kws_test_data[{len(selected_indices)}][1960] = {{\n")
         
         for i, sample in enumerate(data_array):
             f.write("    {")
@@ -108,8 +108,8 @@ def export_kws_samples_to_c(data_dir, num_samples=50, output_file="kws_test_samp
         # Write metadata
         f.write(f"// Metadata\n")
         f.write(f"const uint16_t kws_num_samples = {len(selected_indices)};\n")
-        f.write(f"const uint16_t kws_features_per_sample = 2040;\n")
-        f.write(f"const uint16_t kws_time_frames = 51;\n")
+        f.write(f"const uint16_t kws_features_per_sample = 1960;\n")
+        f.write(f"const uint16_t kws_time_frames = 49;\n")
         f.write(f"const uint16_t kws_mfcc_features = 40;\n")
         f.write(f"const uint8_t kws_num_classes = {get_data_output_size('kws')};\n\n")
         

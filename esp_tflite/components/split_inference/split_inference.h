@@ -14,21 +14,21 @@
 #include "esp_timer.h"
 
 template <int kNumTimesteps, int kDInner, int kDState, int kNumFeatures, int kNumClasses>
-class SplitInference {
+class SplitInference
+{
 public:
-
-    const uint8_t* pre_model_data;
-    const uint8_t* step_model_data;
-    const uint8_t* post_model_data;
-    const char* name;
+    const uint8_t *pre_model_data;
+    const uint8_t *step_model_data;
+    const uint8_t *post_model_data;
+    const char *name;
 
     // Initialize
     void setup_split_model_inference(
-        const uint8_t* pre_model_data, 
-        const uint8_t* step_model_data, 
-        const uint8_t* post_model_data,
-        const char* name
-    ) {
+        const uint8_t *pre_model_data,
+        const uint8_t *step_model_data,
+        const uint8_t *post_model_data,
+        const char *name)
+    {
         this->pre_model_data = pre_model_data;
         this->step_model_data = step_model_data;
         this->post_model_data = post_model_data;
@@ -39,7 +39,8 @@ public:
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         profiler.ClearEvents();
 #endif
-        if (!create_interpreters(pre_model_data, step_model_data, post_model_data)) {
+        if (!create_interpreters(pre_model_data, step_model_data, post_model_data))
+        {
             printf("ERROR: Failed to create interpreters\n");
             return;
         }
@@ -56,22 +57,94 @@ public:
         printf("\n");
     }
 
-    bool run_split_model_inference(const float* input_data, int* output_class) {
+    bool run_split_model_inference(const float *input_data, int *output_class)
+    {
         float output_logits[kOutputLength];
-        if (!run_split_model_inference_raw(input_data, output_logits)) {
+        if (!run_split_model_inference_raw(input_data, output_logits))
+        {
             return false;
         }
-        
+
         // Find predicted class
         *output_class = 0;
         float max_value = output_logits[0];
-        for (int i = 1; i < kOutputLength; i++) {
-            if (output_logits[i] > max_value) {
+        for (int i = 1; i < kOutputLength; i++)
+        {
+            if (output_logits[i] > max_value)
+            {
                 max_value = output_logits[i];
                 *output_class = i;
             }
         }
-        
+
+        return true;
+    }
+
+    bool run_split_model_inference_top3(const float *input_data, int output_classes[3], float confidences[3])
+    {
+        float output_logits[kOutputLength];
+        if (!run_split_model_inference_raw(input_data, output_logits))
+        {
+            return false;
+        }
+
+        // 1. Compute Softmax to get actual probabilities (confidence scores)
+        // Find max logit first for numerical stability (prevents overflow)
+        float max_logit = output_logits[0];
+        for (int i = 1; i < kOutputLength; i++)
+        {
+            if (output_logits[i] > max_logit)
+            {
+                max_logit = output_logits[i];
+            }
+        }
+
+        float probabilities[kOutputLength];
+        float sum = 0.0f;
+        for (int i = 0; i < kOutputLength; i++)
+        {
+            probabilities[i] = std::exp(output_logits[i] - max_logit);
+            sum += probabilities[i];
+        }
+        for (int i = 0; i < kOutputLength; i++)
+        {
+            probabilities[i] /= sum;
+        }
+
+        // 2. Find the top 3 classes
+        // We use a simple structure to pair the class index with its probability
+        struct ClassPrediction
+        {
+            int index;
+            float probability;
+        };
+
+        std::vector<ClassPrediction> predictions(kOutputLength);
+        for (int i = 0; i < kOutputLength; i++)
+        {
+            predictions[i] = {i, probabilities[i]};
+        }
+
+        // Sort in descending order based on probability
+        std::sort(predictions.begin(), predictions.end(), [](const ClassPrediction &a, const ClassPrediction &b)
+                  { return a.probability > b.probability; });
+
+        // 3. Fill the output arrays (handling cases where kOutputLength might be less than 3)
+        for (int i = 0; i < 3; i++)
+        {
+            if (i < kOutputLength)
+            {
+                output_classes[i] = predictions[i].index;
+                confidences[i] = predictions[i].probability; // Value between 0.0 and 1.0
+            }
+            else
+            {
+                // Padding if the model has fewer than 3 total classes
+                output_classes[i] = -1;
+                confidences[i] = 0.0f;
+            }
+        }
+
         return true;
     }
 
@@ -94,19 +167,19 @@ private:
 
     // Interpreter pointer (only one used at a time)
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
-    tflite::RecordingMicroAllocator* shared_allocator = 
+    tflite::RecordingMicroAllocator *shared_allocator =
         tflite::RecordingMicroAllocator::Create(tensor_arena, kTensorArenaSize);
 
-    tflite::RecordingMicroInterpreter* pre_interpreter = nullptr;
-    tflite::RecordingMicroInterpreter* step_interpreter = nullptr;
-    tflite::RecordingMicroInterpreter* post_interpreter = nullptr;
+    tflite::RecordingMicroInterpreter *pre_interpreter = nullptr;
+    tflite::RecordingMicroInterpreter *step_interpreter = nullptr;
+    tflite::RecordingMicroInterpreter *post_interpreter = nullptr;
 #else
-    tflite::MicroAllocator* shared_allocator = 
+    tflite::MicroAllocator *shared_allocator =
         tflite::MicroAllocator::Create(tensor_arena, kTensorArenaSize);
 
-    tflite::MicroInterpreter* pre_interpreter = nullptr;
-    tflite::MicroInterpreter* step_interpreter = nullptr;
-    tflite::MicroInterpreter* post_interpreter = nullptr;
+    tflite::MicroInterpreter *pre_interpreter = nullptr;
+    tflite::MicroInterpreter *step_interpreter = nullptr;
+    tflite::MicroInterpreter *post_interpreter = nullptr;
 #endif
 
     // Single shared resolver
@@ -116,7 +189,7 @@ private:
     // Single shared profiler (reused across all models)
     tflite::CustomProfiler<1024, 20> profiler;
 
-    UBaseType_t uxHighWaterMark = 0;  // For stack checking
+    UBaseType_t uxHighWaterMark = 0; // For stack checking
 #endif
 
 // ========== Inter-model Communication Buffers ==========
@@ -135,30 +208,34 @@ private:
 #else
 
     float pre_ssm_state[kPreSSMStateSize];
-    float pre_ssm_gate[kPreSSMGateSize]; 
+    float pre_ssm_gate[kPreSSMGateSize];
 
 #endif
 
-    void process_model_output(const TfLiteTensor* tensor, float* output, size_t size) {
+    void process_model_output(const TfLiteTensor *tensor, float *output, size_t size)
+    {
 #if CONFIG_USE_QUANTIZED_MODEL
-        const int8_t* tensor_data = tflite::GetTensorData<int8_t>(tensor);
+        const int8_t *tensor_data = tflite::GetTensorData<int8_t>(tensor);
         const float scale = tensor->params.scale;
         const int zero_point = tensor->params.zero_point;
-        for (int i = 0; i < size; ++i) {
+        for (int i = 0; i < size; ++i)
+        {
             output[i] = static_cast<float>(tensor_data[i] - zero_point) * scale;
         }
 #else
-        const float* tensor_data = tflite::GetTensorData<float>(tensor);
+        const float *tensor_data = tflite::GetTensorData<float>(tensor);
         memcpy(output, tensor_data, size * sizeof(float));
 #endif
     }
 
-    void process_model_input(const float* input, TfLiteTensor* tensor, size_t size) {
+    void process_model_input(const float *input, TfLiteTensor *tensor, size_t size)
+    {
 #if CONFIG_USE_QUANTIZED_MODEL
-        int8_t* tensor_data = tflite::GetTensorData<int8_t>(tensor);
+        int8_t *tensor_data = tflite::GetTensorData<int8_t>(tensor);
         const float scale = tensor->params.scale;
         const int zero_point = tensor->params.zero_point;
-        for (int i = 0; i < size; ++i) {
+        for (int i = 0; i < size; ++i)
+        {
             // Python: q = np.round(x_np / scale + zero_point)
             int32_t q = static_cast<int32_t>(std::lround(input[i] / scale)) + zero_point;
             // Clip to int8 range
@@ -166,23 +243,25 @@ private:
             tensor_data[i] = static_cast<int8_t>(q);
         }
 #else
-        float* tensor_data = tflite::GetTensorData<float>(tensor);
+        float *tensor_data = tflite::GetTensorData<float>(tensor);
         memcpy(tensor_data, input, size * sizeof(float));
 #endif
     }
 
 #if CONFIG_USE_QUANTIZED_MODEL
     void requantize_int8_to_tensor(
-        const int8_t* source_data,
+        const int8_t *source_data,
         float source_scale,
         int32_t source_zero_point,
-        TfLiteTensor* dest_tensor,
-        size_t size) {
-        int8_t* dest_data = tflite::GetTensorData<int8_t>(dest_tensor);
+        TfLiteTensor *dest_tensor,
+        size_t size)
+    {
+        int8_t *dest_data = tflite::GetTensorData<int8_t>(dest_tensor);
         const float dest_scale = dest_tensor->params.scale;
         const int32_t dest_zero_point = dest_tensor->params.zero_point;
-        
-        for (int i = 0; i < size; ++i) {
+
+        for (int i = 0; i < size; ++i)
+        {
             // Dequantize from source quantization
             float dequantized_value = static_cast<float>(source_data[i] - source_zero_point) * source_scale;
             // Requantize to destination quantization
@@ -195,7 +274,8 @@ private:
 #endif
 
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
-    void print_memory_debug(const char* step_name, tflite::RecordingMicroInterpreter* interpreter) {
+    void print_memory_debug(const char *step_name, tflite::RecordingMicroInterpreter *interpreter)
+    {
         printf("\n--- %s Memory Allocation ---\n", step_name);
         interpreter->GetMicroAllocator().PrintAllocations();
     }
@@ -204,23 +284,25 @@ private:
     bool resolver_initialized = false;
 
     bool create_interpreters(
-        const uint8_t* pre_model_data,
-        const uint8_t* step_model_data,
-        const uint8_t* post_model_data) {
-        
-        const tflite::Model* pre_model = tflite::GetModel(pre_model_data);
-        const tflite::Model* step_model = tflite::GetModel(step_model_data);
-        const tflite::Model* post_model = tflite::GetModel(post_model_data);
-        if (pre_model->version() != TFLITE_SCHEMA_VERSION || 
-            step_model->version() != TFLITE_SCHEMA_VERSION || 
-            post_model->version() != TFLITE_SCHEMA_VERSION) {
+        const uint8_t *pre_model_data,
+        const uint8_t *step_model_data,
+        const uint8_t *post_model_data)
+    {
+
+        const tflite::Model *pre_model = tflite::GetModel(pre_model_data);
+        const tflite::Model *step_model = tflite::GetModel(step_model_data);
+        const tflite::Model *post_model = tflite::GetModel(post_model_data);
+        if (pre_model->version() != TFLITE_SCHEMA_VERSION ||
+            step_model->version() != TFLITE_SCHEMA_VERSION ||
+            post_model->version() != TFLITE_SCHEMA_VERSION)
+        {
             printf("ERROR: model version mismatch!\n");
             return false;
         }
-        
+
         resolver.AddFullyConnected();
         resolver.AddDepthwiseConv2D();
-        
+
         resolver.AddGatherNd();
         resolver.AddReshape();
         resolver.AddTranspose();
@@ -233,7 +315,7 @@ private:
 
         resolver.AddQuantize();
         resolver.AddDequantize();
-        
+
         resolver.AddRelu();
         resolver.AddExp();
         // resolver.AddLogistic();
@@ -255,42 +337,45 @@ private:
         post_interpreter = new tflite::MicroInterpreter(
             post_model, resolver, shared_allocator);
 #endif
-    
-        if (pre_interpreter->AllocateTensors() != kTfLiteOk || 
-            step_interpreter->AllocateTensors() != kTfLiteOk || 
-            post_interpreter->AllocateTensors() != kTfLiteOk) {
+
+        if (pre_interpreter->AllocateTensors() != kTfLiteOk ||
+            step_interpreter->AllocateTensors() != kTfLiteOk ||
+            post_interpreter->AllocateTensors() != kTfLiteOk)
+        {
             printf("ERROR: Failed to allocate tensors for one or more models\n");
             return false;
         }
 
         return true;
-        }
+    }
 
-    bool run_split_model_inference_raw(const float* input_data, float* output_logits) {
+    bool run_split_model_inference_raw(const float *input_data, float *output_logits)
+    {
         // ========== STAGE 1: PreSSM ==========
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         int64_t inference_start_time = esp_timer_get_time();
 #endif
-        TfLiteTensor* pre_input = pre_interpreter->input(0);
-        TfLiteTensor* pre_output_state = pre_interpreter->output(0);
-        TfLiteTensor* pre_output_gate = pre_interpreter->output(1);
+        TfLiteTensor *pre_input = pre_interpreter->input(0);
+        TfLiteTensor *pre_output_state = pre_interpreter->output(0);
+        TfLiteTensor *pre_output_gate = pre_interpreter->output(1);
 
-        TfLiteTensor* step_input_x = step_interpreter->input(0);
-        TfLiteTensor* step_input_hidden = step_interpreter->input(1);
-        TfLiteTensor* step_output_y = step_interpreter->output(0);
-        TfLiteTensor* step_output_updated_hidden = step_interpreter->output(1);
+        TfLiteTensor *step_input_x = step_interpreter->input(0);
+        TfLiteTensor *step_input_hidden = step_interpreter->input(1);
+        TfLiteTensor *step_output_y = step_interpreter->output(0);
+        TfLiteTensor *step_output_updated_hidden = step_interpreter->output(1);
 
-        TfLiteTensor* post_input_y = post_interpreter->input(0);
-        TfLiteTensor* post_input_gate = post_interpreter->input(1);
-        TfLiteTensor* post_output = post_interpreter->output(0);
-        
+        TfLiteTensor *post_input_y = post_interpreter->input(0);
+        TfLiteTensor *post_input_gate = post_interpreter->input(1);
+        TfLiteTensor *post_output = post_interpreter->output(0);
+
         process_model_input(input_data, pre_input, kInputLength);
-        
-        if (pre_interpreter->Invoke() != kTfLiteOk) {
+
+        if (pre_interpreter->Invoke() != kTfLiteOk)
+        {
             printf("ERROR: PreSSM inference failed\n");
             return false;
         }
-        
+
 #if CONFIG_USE_QUANTIZED_MODEL
         pre_ssm_state_scale = pre_output_state->params.scale;
         pre_ssm_state_zero_point = pre_output_state->params.zero_point;
@@ -302,15 +387,15 @@ private:
         memcpy(pre_ssm_state, tflite::GetTensorData<float>(pre_output_state), kPreSSMStateSize * sizeof(float));
         memcpy(pre_ssm_gate, tflite::GetTensorData<float>(pre_output_gate), kPreSSMGateSize * sizeof(float));
 #endif
-        
+
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         print_memory_debug("PreSSM", pre_interpreter);
         printf("\n--- PreSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();
         profiler.AdvanceLap();
 #endif
-        
-        // ========== STAGE 2: StepSSM Loop ========== 
+
+        // ========== STAGE 2: StepSSM Loop ==========
 #if CONFIG_USE_QUANTIZED_MODEL
         step_output_y_scale = step_output_y->params.scale;
         step_output_y_zero_point = step_output_y->params.zero_point;
@@ -319,17 +404,19 @@ private:
         memset(tflite::GetTensorData<float>(step_input_hidden), 0, kHiddenStateSize * sizeof(float));
 #endif
 
-        for (int t = 0; t < kNumTimesteps; t++) {
+        for (int t = 0; t < kNumTimesteps; t++)
+        {
 #if CONFIG_USE_QUANTIZED_MODEL
-            // requantize_int8_to_tensor(&tflite::GetTensorData<int8_t>(pre_output_state)[t * kDInner], 
+            // requantize_int8_to_tensor(&tflite::GetTensorData<int8_t>(pre_output_state)[t * kDInner],
             //     pre_output_state->params.scale, pre_output_state->params.zero_point, step_input_x, kDInner);
-            requantize_int8_to_tensor(&pre_ssm_state[t * kDInner], pre_ssm_state_scale, pre_ssm_state_zero_point, 
-                                    step_input_x, kDInner);
+            requantize_int8_to_tensor(&pre_ssm_state[t * kDInner], pre_ssm_state_scale, pre_ssm_state_zero_point,
+                                      step_input_x, kDInner);
 #else
             memcpy(tflite::GetTensorData<float>(step_input_x), pre_ssm_state + t * kDInner, kDInner * sizeof(float));
 #endif
 
-            if (step_interpreter->Invoke() != kTfLiteOk) {
+            if (step_interpreter->Invoke() != kTfLiteOk)
+            {
                 printf("ERROR: StepSSM inference failed at timestep %d\n", t);
                 return false;
             }
@@ -339,8 +426,8 @@ private:
             memcpy(pre_ssm_state + t * kDInner, tflite::GetTensorData<int8_t>(step_output_y), kDInner * sizeof(int8_t));
             // Requantize hidden state for next timestep
             requantize_int8_to_tensor(tflite::GetTensorData<int8_t>(step_output_updated_hidden),
-                                    step_output_updated_hidden->params.scale, step_output_updated_hidden->params.zero_point,
-                                    step_input_hidden, kHiddenStateSize);
+                                      step_output_updated_hidden->params.scale, step_output_updated_hidden->params.zero_point,
+                                      step_input_hidden, kHiddenStateSize);
 #else
             // Copy outputs to buffers for next iteration
             memcpy(pre_ssm_state + t * kDInner, tflite::GetTensorData<float>(step_output_y), kDInner * sizeof(float));
@@ -354,51 +441,51 @@ private:
         profiler.LogGroupedSinceLap();
         profiler.AdvanceLap();
 #endif
-        
+
         // ========== STAGE 3: PostSSM ==========
 #if CONFIG_USE_QUANTIZED_MODEL
         // Requantize y_all (accumulated outputs) and gate for PostSSM inputs
         requantize_int8_to_tensor(pre_ssm_state, step_output_y_scale, step_output_y_zero_point,
-                                post_input_y, kYAllSize);
+                                  post_input_y, kYAllSize);
         requantize_int8_to_tensor(pre_ssm_gate, pre_ssm_gate_scale, pre_ssm_gate_zero_point,
-                                post_input_gate, kPreSSMGateSize);
+                                  post_input_gate, kPreSSMGateSize);
 #else
         // Copy float buffers to PostSSM inputs
         memcpy(tflite::GetTensorData<float>(post_input_y), pre_ssm_state, kYAllSize * sizeof(float));
         memcpy(tflite::GetTensorData<float>(post_input_gate), pre_ssm_gate, kPreSSMGateSize * sizeof(float));
 #endif
 
-        if (post_interpreter->Invoke() != kTfLiteOk) {
+        if (post_interpreter->Invoke() != kTfLiteOk)
+        {
             printf("ERROR: PostSSM inference failed\n");
             return false;
         }
-        
+
         process_model_output(post_output, output_logits, kOutputLength);
 
         pre_interpreter->Reset();
         step_interpreter->Reset();
         post_interpreter->Reset();
         shared_allocator->ResetTempAllocations();
-        
+
 #if CONFIG_ENABLE_MODEL_DEBUG_PRINTS
         print_memory_debug("PostSSM", post_interpreter);
         printf("\n--- PostSSM Profiling Results ---\n");
         profiler.LogGroupedSinceLap();
         printf("\n--- Total Profiling Results ---\n");
         profiler.LogGroupedTotal();
-        
+
         // Check stack
         uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
         printf("\nStack High Water Mark: %d bytes remaining\n", (int)uxHighWaterMark);
-        
+
         // Print total inference time
         int64_t inference_end_time = esp_timer_get_time();
         int64_t total_inference_time_us = inference_end_time - inference_start_time;
         float total_inference_time_ms = total_inference_time_us / 1000.0f;
         printf("\nTotal Inference Time: %.2f ms (%.0f µs)\n", total_inference_time_ms, (float)total_inference_time_us);
 #endif
-        
+
         return true;
     }
-
 };
