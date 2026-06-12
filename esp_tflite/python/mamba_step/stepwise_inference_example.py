@@ -235,12 +235,13 @@ def main():
     d_inner = d_model * 2  # Standard expansion
     d_state = 16
     d_conv = 4
+    dt_size = 8
     
     print(f"Model architecture: input_dim={input_dim}, d_model={d_model}, output_size={output_size}, seq_len={seq_len}")
     
     # Create models with metadata-based dimensions
     pre_ssm = PreSSMModule(input_dim=input_dim, d_model=d_model, d_inner=d_inner, d_conv=d_conv)
-    step_ssm = StepSSMModule(d_inner=d_inner, d_state=d_state)
+    step_ssm = StepSSMModule(d_inner=d_inner, d_state=d_state, dt_size=dt_size)
     post_ssm = PostSSMModule(d_model=d_model, d_inner=d_inner, output_size=output_size)
     
     # Load weights from trained model

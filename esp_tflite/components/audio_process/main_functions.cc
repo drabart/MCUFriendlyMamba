@@ -101,26 +101,41 @@ void setup()
 }
 
 // The name of this function is important for Arduino compatibility.
-void loop()
+void audio_process()
 {
-    // // Fetch the spectrogram for the current time.
-    // const int32_t current_time = LatestAudioTimestamp();
-    // int how_many_new_slices = 0;
-    // TfLiteStatus feature_status = feature_provider->PopulateFeatureData(
-    //     previous_time, current_time, &how_many_new_slices);
-    // if (feature_status != kTfLiteOk)
-    // {
-    //     MicroPrintf("Feature generation failed");
-    //     return;
-    // }
-    // previous_time = current_time;
-    // // If no new audio samples have been received since last time, don't bother
-    // // running the network model.
-    // if (how_many_new_slices == 0)
-    // {
-    //     return;
-    // }
+    // Fetch the spectrogram for the current time.
+    const int32_t current_time = LatestAudioTimestamp();
+    int how_many_new_slices = 0;
+    TfLiteStatus feature_status = feature_provider->PopulateFeatureData(
+        previous_time, current_time, &how_many_new_slices);
+    if (feature_status != kTfLiteOk)
+    {
+        MicroPrintf("Feature generation failed");
+        return;
+    }
+    previous_time = current_time;
+    // If no new audio samples have been received since last time, don't bother
+    // running the network model.
+    if (how_many_new_slices == 0)
+    {
+        return;
+    }
 
+    int predicted_classes[3];
+    float confidences[3];
+    if (!model_inference.run_split_model_inference_top3(feature_buffer, predicted_classes, confidences))
+    {
+        printf("Inference failed\n");
+    }
+
+    printf("TOP 3: %s (%.2f), %s (%.2f), %s (%.2f)\n",
+           KEYWORD_LABELS[predicted_classes[0]], confidences[0],
+           KEYWORD_LABELS[predicted_classes[1]], confidences[1],
+           KEYWORD_LABELS[predicted_classes[2]], confidences[2]);
+}
+
+void kws_test()
+{
     int sample_count = 50;
     int correct_predictions = 0;
 
@@ -146,17 +161,13 @@ void loop()
 
     printf("Correct predictions: %d/%d\n", correct_predictions, sample_count);
 
-    exit(0);
+    for (;;)
+    {
+    }
+}
 
-    // int predicted_classes[3];
-    // float confidences[3];
-    // if (!model_inference.run_split_model_inference_top3(feature_buffer, predicted_classes, confidences))
-    // {
-    //     printf("Inference failed\n");
-    // }
-
-    // printf("TOP 3: %s (%.2f), %s (%.2f), %s (%.2f)\n",
-    //        KEYWORD_LABELS[predicted_classes[0]], confidences[0],
-    //        KEYWORD_LABELS[predicted_classes[1]], confidences[1],
-    //        KEYWORD_LABELS[predicted_classes[2]], confidences[2]);
+void loop()
+{
+    audio_process();
+    // kws_test();
 }
