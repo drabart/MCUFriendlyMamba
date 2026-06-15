@@ -45,7 +45,7 @@ private:
     float *feature_data_;
     // Make sure we don't try to use cached information if this is the first call
     // into the provider.
-    bool is_first_run_;
+    int run_count_ = 0;
 };
 
 #endif // TENSORFLOW_LITE_MICRO_EXAMPLES_MICRO_SPEECH_FEATURE_PROVIDER_H_

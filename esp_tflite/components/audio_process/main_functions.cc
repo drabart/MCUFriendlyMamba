@@ -19,6 +19,7 @@ limitations under the License.
 
 #include "main_functions.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
 
 #include "audio_provider.h"
 #include "feature_provider.h"
@@ -43,21 +44,50 @@ limitations under the License.
 #include "model_post_ssm_kws_model_data.h"
 #endif
 
-// Globals, used for compatibility with Arduino-style sketches.
 namespace
 {
     FeatureProvider *feature_provider = nullptr;
     int32_t previous_time = 0;
 
     float feature_buffer[kFeatureElementCount];
-} // namespace
 
-// Keyword labels for output (35 speech command keywords)
-const char *KEYWORD_LABELS[] = {
-    "backward", "bed", "bird", "cat", "dog", "down", "eight", "five", "follow",
-    "forward", "four", "go", "happy", "house", "learn", "left", "marvin", "nine",
-    "no", "off", "on", "one", "right", "seven", "sheila", "six", "stop", "three",
-    "tree", "two", "up", "visual", "wow", "yes", "zero"};
+    // Keyword labels for output (35 speech command keywords)
+    const char *KEYWORD_LABELS[] = {
+        "backward", "bed", "bird", "cat", "dog", "down", "eight", "five", "follow",
+        "forward", "four", "go", "happy", "house", "learn", "left", "marvin", "nine",
+        "no", "off", "on", "one", "right", "seven", "sheila", "six", "stop", "three",
+        "tree", "two", "up", "visual", "wow", "yes", "zero"};
+
+    const int id_to_number[] = {
+        -1, -1, -1, -1, -1, -1, 8, 5, -1,
+        -1, 4, -1, -1, -1, -1, -1, -1, 9,
+        -1, -1, -1, 1, -1, 7, -1, 6, -1, 3,
+        -1, 2, -1, -1, -1, -1, 0};
+
+    std::vector<int> accumulated_digits;
+
+    // Helper function to print the current state of the running number
+    void print_accumulated_number()
+    {
+        // \r moves the cursor to the beginning of the CURRENT line.
+        // \033[K clears the rest of that line so old numbers don't ghost.
+        printf("\r\033[K>>> CURRENT NUMBER: ");
+        if (accumulated_digits.empty())
+        {
+            printf("[Empty]\n");
+        }
+        else
+        {
+            for (int digit : accumulated_digits)
+            {
+                printf("%d", digit);
+            }
+            printf("\n");
+        }
+        // Force the output to show immediately without waiting for a newline (\n)
+        fflush(stdout);
+    }
+}
 
 #if CONFIG_USE_QUANTIZED_MODEL
 using model_tensor_t = int8_t;
@@ -73,6 +103,8 @@ constexpr int kNumTimesteps = 49; // Sequence length (time frames)
 constexpr int kDInner = 128;      // SSM inner dimension
 constexpr int kDState = 16;       // SSM state space dimension
 constexpr int kNumClasses = 35;   // Keyword classification classes
+
+#define BUTTON_PIN GPIO_NUM_15
 
 SplitInference<kNumTimesteps, kDInner, kDState, kNumFeatures, kNumClasses> model_inference;
 
@@ -98,13 +130,19 @@ void setup()
     feature_provider = &static_feature_provider;
 
     previous_time = 0;
+
+    // Configure button on GPIO 15
+    gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLUP_ONLY);
 }
 
 // The name of this function is important for Arduino compatibility.
 void audio_process()
 {
-    // Fetch the spectrogram for the current time.
+    int button_level = gpio_get_level(BUTTON_PIN);
     const int32_t current_time = LatestAudioTimestamp();
+
+    // Fetch the spectrogram for the current time.
     int how_many_new_slices = 0;
     TfLiteStatus feature_status = feature_provider->PopulateFeatureData(
         previous_time, current_time, &how_many_new_slices);
@@ -114,24 +152,59 @@ void audio_process()
         return;
     }
     previous_time = current_time;
-    // If no new audio samples have been received since last time, don't bother
-    // running the network model.
-    if (how_many_new_slices == 0)
+
+    if (button_level == 1 || how_many_new_slices == 0)
     {
+        // button not pressed or no new audio
         return;
     }
 
-    int predicted_classes[3];
-    float confidences[3];
-    if (!model_inference.run_split_model_inference_top3(feature_buffer, predicted_classes, confidences))
+    int predicted_class = -1;
+    float confidence = 0.0f;
+    if (!model_inference.run_split_model_inference(feature_buffer, &predicted_class, &confidence))
     {
         printf("Inference failed\n");
     }
 
-    printf("TOP 3: %s (%.2f), %s (%.2f), %s (%.2f)\n",
-           KEYWORD_LABELS[predicted_classes[0]], confidences[0],
-           KEYWORD_LABELS[predicted_classes[1]], confidences[1],
-           KEYWORD_LABELS[predicted_classes[2]], confidences[2]);
+    if (predicted_class < 0 || predicted_class >= 35)
+    {
+        printf("Error: predicted_class (%d) is out of bounds!\n", predicted_class);
+        return;
+    }
+
+    static int32_t last_added_time = 0;
+    const char *keyword = KEYWORD_LABELS[predicted_class];
+    int mapped_number = id_to_number[predicted_class];
+    if (confidence >= 0.20f)
+    {
+        printf("Predicted: %s (Confidence: %.2f)\n", keyword, confidence);
+    }
+
+    // We only act if the model is confident enough
+    if (current_time - last_added_time > 1000 && (confidence >= 0.70f || (predicted_class == 29 && confidence >= 0.50f)))
+    {
+        last_added_time = current_time;
+        if (mapped_number != -1)
+        {
+            accumulated_digits.push_back(mapped_number);
+            printf("\nLogged: Added %d (Keyword: %s, Conf: %.2f)", mapped_number, keyword, confidence);
+        }
+        else if (strcmp(keyword, "backward") == 0)
+        {
+            if (!accumulated_digits.empty())
+            {
+                accumulated_digits.pop_back();
+                printf("\nLogged: Removed last digit (Keyword: backward, Conf: %.2f)", confidence);
+            }
+            else
+            {
+                printf("\nLogged: Attempted 'backward' but number is already empty (Conf: %.2f)", confidence);
+            }
+        }
+
+        // Always redraw the updated sequence right at the bottom line
+        print_accumulated_number();
+    }
 }
 
 void kws_test()

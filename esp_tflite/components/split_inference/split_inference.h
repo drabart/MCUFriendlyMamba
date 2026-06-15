@@ -57,7 +57,7 @@ public:
         printf("\n");
     }
 
-    bool run_split_model_inference(const float *input_data, int *output_class)
+    bool run_split_model_inference(const float *input_data, int *output_class, float *confidence = nullptr)
     {
         float output_logits[kOutputLength];
         if (!run_split_model_inference_raw(input_data, output_logits))
@@ -67,14 +67,22 @@ public:
 
         // Find predicted class
         *output_class = 0;
-        float max_value = output_logits[0];
+        float max_value = std::exp(output_logits[0]);
+        float sum_exp = max_value;
         for (int i = 1; i < kOutputLength; i++)
         {
-            if (output_logits[i] > max_value)
+            float exp_value = std::exp(output_logits[i]);
+            sum_exp += exp_value;
+            if (exp_value > max_value)
             {
-                max_value = output_logits[i];
+                max_value = exp_value;
                 *output_class = i;
             }
+        }
+
+        if (confidence)
+        {
+            *confidence = max_value / sum_exp;
         }
 
         return true;

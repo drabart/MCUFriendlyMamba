@@ -16,6 +16,7 @@ limitations under the License.
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "esp_timer.h"
 #include <esp_log.h>
 
 #include <cstring>
@@ -32,7 +33,7 @@ const char *TAG = "feature_provider";
 FeatureProvider::FeatureProvider(int feature_size, float *feature_data)
     : feature_size_(feature_size),
       feature_data_(feature_data),
-      is_first_run_(true)
+      run_count_(0)
 {
   // Initialize the feature data to default values.
   for (int n = 0; n < feature_size_; ++n)
@@ -60,7 +61,7 @@ TfLiteStatus FeatureProvider::PopulateFeatureData(
 
   int slices_needed = current_step - last_step;
   // If this is the first call, make sure we don't use any cached information.
-  if (is_first_run_)
+  if (run_count_ == 0)
   {
     TfLiteStatus init_status = InitializeMicroFeatures();
     if (init_status != kTfLiteOk)
@@ -69,14 +70,20 @@ TfLiteStatus FeatureProvider::PopulateFeatureData(
       return init_status;
     }
     ESP_LOGI(TAG, "InitializeMicroFeatures successful");
-    is_first_run_ = false;
+    run_count_ = 1;
     slices_needed = kFeatureCount;
+  }
+  if (run_count_ == 1)
+  {
+    slices_needed = 5;
+    run_count_ = 2;
   }
 
   if (slices_needed > kFeatureCount)
   {
     slices_needed = kFeatureCount;
   }
+  // printf("New audio data: %d slices\n", slices_needed);
   *how_many_new_slices = slices_needed;
 
   const int slices_to_keep = kFeatureCount - slices_needed;
