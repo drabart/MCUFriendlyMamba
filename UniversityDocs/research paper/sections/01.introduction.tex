@@ -1,13 +1,11 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Machine learning has recently enabled solutions to problems that were difficult or infeasible with traditional algorithms. This progress produced both large, general-purpose models (e.g., large language models) and many compact, task-specific models.
-
-Most deployments still rely on centralized data centres, which are efficient but impose limitations: they require network connectivity, add latency, and raise privacy concerns.
-
-Edge AI reduces these limitations by running inference locally on user devices. TinyML \cite{wardenTinyMLMachineLearning2019} focuses on the extreme end of this spectrum, designing models that run on microcontrollers (MCUs). MCUs are severely resource-constrained: typical devices provide one or two CPU cores (usually clocked below 240 MHz) and on the order of 512 KB of RAM, so they cannot host large models or their full-precision weights. Low latency is also essential because many TinyML applications (for example, audio or video streams) require real-time processing.
+Edge AI aims to improve privacy and decentralize machine learning inference. It achieves this by running models directly on user devices. TinyML \cite{wardenTinyMLMachineLearning2019} focuses on the extreme end of this spectrum, designing models that run on microcontrollers (MCUs). MCUs are severely resource-constrained: typical devices provide one or two CPU cores (usually clocked below 240 MHz) and often 512~KB or less of RAM, so they cannot host large models or their full-precision weights. Low latency is also essential because many TinyML applications (for example, audio or video streams) require real-time processing.
 
 Numerous model families have been developed for different trade-offs, including multilayer perceptrons (MLPs), convolutional neural networks (CNNs), recurrent neural networks (RNNs), and Transformers. The recently proposed Mamba architecture \cite{guMambaLinearTimeSequence2024} has emerged as a promising alternative to Transformers for long-context tasks. Mamba combines ideas from CNNs and RNNs and leverages Selective State-Space Model (S6) block to achieve a smaller memory footprint while maintaining strong performance on long sequences.
+
+Besides the resource constraints of MCUs, there are also some less obvious limitations. While most popular math operations, like exponentiation and trigonometric functions, have been heavily optimized on modern CPUs, that is usually not the case for microcontrollers. Mamba architecture has also been developed with use in LLMs as the primary target. This means that it has been built for deployment on a recent GPU, and assumes that some operations can run in parallel. // TODO
 
 Prior work has explored optimizations for Mamba such as quantization \cite{xuMambaQuantQuantizingMamba2025}, pruning, and knowledge distillation \cite{shihabEfficientUnstructuredPruning}. MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} implemented PyTorch-style inference for Mamba directly in C and ran it on ESP32-S3 and STM32 microcontrollers; this preserves compatibility but makes architecture changes and further optimizations cumbersome.
 
