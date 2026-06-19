@@ -55,6 +55,13 @@ Parallel to model precision, we tracked binary storage footprints across individ
 
 To establish low-level optimization targets, we isolated the execution latency assigned to individual operation types within a standard Mamba layer (\autoref{fig:operation_performance}). Profiling indicated that native exponential instructions impose a severe latency penalty on bare-metal MCUs that lack hardware-level transcendental acceleration blocks.
 
+\begin{figure*}[ht]
+  \centering
+  \includegraphics[width=0.7\textwidth]{assets/result_figures/operation_performance_linear.png}
+  \caption{Granular execution impact per instruction type across Float, INT8 ANSI, and INT8 HAR configurations.}
+  \label{fig:operation_performance}
+\end{figure*}
+
 To mitigate this bottleneck, we structured three comparative floating-point models under varying configurations of transcendental replacement.
 \textit{float noopt} - preserves all original functions. \textit{float} - replaces the SiLU and Softmax functions with hardware-friendly ReLU primitives. \textit{float opt} - additionally substitutes the analytical expression $\overline{A} = \exp(\Delta_t \cdot A)$ with a first-order Euler discretization $\overline{A} \approx 1.0 + \Delta_t \cdot A$. The resulting latency and accuracy behaviors are detailed in \autoref{fig:float_opt} and \autoref{tab:accuracy_float}, respectively.
 
@@ -107,13 +114,6 @@ Finally, we evaluated the performance profiles of our proposed model-splitting d
   \caption{Detailed latency benchmarks across isolated microcontroller execution strategies.}
   \label{fig:final_latency}
 \end{figure}
-
-\begin{figure*}[ht]
-  \centering
-  \includegraphics[width=0.7\textwidth]{assets/result_figures/operation_performance_linear.png}
-  \caption{Granular execution impact per instruction type across Float, INT8 ANSI, and INT8 HAR configurations.}
-  \label{fig:operation_performance}
-\end{figure*}
 
 While splitting the graph incurs a substantial speed penalty, it successfully addresses memory bottlenecks. Volatile memory usage behaves predictably: INT8 variants demand significantly smaller heap allocations (\autoref{fig:memory}).
 

@@ -29,7 +29,7 @@ The size of the model was chosen to be comparable to the MambaLite-Micro impleme
 
 The model is trained using the Adam optimizer with a learning rate of 0.002 and a step learning rate scheduler that reduces the learning rate by half every 10 epochs. We train for 20 epochs, which is sufficient for convergence on these datasets.
 
-We train the model in PyTorch and then convert it to TFLite using the TFLM converter. Then we apply quntization using the AI Edge Quantizer We only evaluate static post-training quantization. We do this with 2000 samples from the training sets of the two datasets. We found that increasing the number of samples further did not significantly change quantization results.
+We train the model in PyTorch and then convert it to TFLite using the TFLM converter. Then we apply quantization using the AI Edge Quantizer We only evaluate static post-training quantization. We do this with 2000 samples from the training sets of the two datasets. We found that increasing the number of samples further did not significantly change quantization results.
 
 \subsection{Evaluation Metrics and Measurement Procedures}
 
