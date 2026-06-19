@@ -1,13 +1,29 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Edge AI aims to improve privacy and decentralize machine learning inference. It achieves this by running models directly on user devices. TinyML \cite{wardenTinyMLMachineLearning2019} focuses on the extreme end of this spectrum, designing models that run on microcontrollers (MCUs). MCUs are severely resource-constrained: typical devices provide one or two CPU cores (usually clocked below 240 MHz) and often 512~KB or less of RAM, so they cannot host large models or their full-precision weights. Low latency is also essential because many TinyML applications (for example, audio or video streams) require real-time processing.
+Edge AI aims to improve latency, privacy and decentralize machine learning inference by running models directly on user devices. TinyML \cite{wardenTinyMLMachineLearning2019} focuses on the extreme end of this spectrum, designing models that run on microcontrollers (MCUs). MCUs are severely resource-constrained: typical devices provide one or two CPU cores (usually clocked below 240~MHz) and often 512~KB or less of RAM, preventing them from hosting large models or full-precision weights. Furthermore, low latency is essential because many TinyML applications, such as audio or video streams, require real-time processing.
 
-Numerous model families have been developed for different trade-offs, including multilayer perceptrons (MLPs), convolutional neural networks (CNNs), recurrent neural networks (RNNs), and Transformers. The recently proposed Mamba architecture \cite{guMambaLinearTimeSequence2024} has emerged as a promising alternative to Transformers for long-context tasks. Mamba combines ideas from CNNs and RNNs and leverages Selective State-Space Model (S6) block to achieve a smaller memory footprint while maintaining strong performance on long sequences.
+The extreme memory limitations of microcontrollers make architectural designs with super-linear memory scaling poorly suited for TinyML applications. Consequently, convolutional neural networks (CNNs) and recurrent neural networks (RNNs) have traditionally remained the dominant choices due to their superior parameter efficiency relative to standard multilayer perceptrons (MLPs) or Transformer-based models \cite{trileEfficientNeuralNetworks2026}. However, the recently proposed Mamba architecture \cite{guMambaLinearTimeSequence2024} has emerged as a promising alternative to Transformers for long-context tasks, blending convolutional and recurrent design ideas to capture long-range dependencies while maintaining a linear memory footprint. A top-level diagram of this Mamba block architecture appears in \autoref{fig:mamba}.
 
-Besides the resource constraints of MCUs, there are also some less obvious limitations. While most popular math operations, like exponentiation and trigonometric functions, have been heavily optimized on modern CPUs, that is usually not the case for microcontrollers. Mamba architecture has also been developed with use in LLMs as the primary target. This means that it has been built for deployment on a recent GPU, and assumes that some operations can run in parallel. // TODO
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{assets/mamba.jpg}
+  \caption{Diagram of the Mamba block.}
+  \label{fig:mamba}
+\end{figure}
 
-Prior work has explored optimizations for Mamba such as quantization \cite{xuMambaQuantQuantizingMamba2025}, pruning, and knowledge distillation \cite{shihabEfficientUnstructuredPruning}. MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} implemented PyTorch-style inference for Mamba directly in C and ran it on ESP32-S3 and STM32 microcontrollers; this preserves compatibility but makes architecture changes and further optimizations cumbersome.
+Mamba's main building block is a Selective State-Space Model (S6) layer, which captures long-range structure while avoiding the quadratic complexity of attention. The S6 formulation can be written as:
+$$
+\begin{aligned}
+  h_t &= \overline{A} h_{t-1} + \overline{B} x_t \\
+  y_t &= C h_t + D x_t
+\end{aligned}
+$$
+
+In Mamba, the S6 matrices are conditioned on the input, allowing the hidden state dynamics to adapt dynamically over time. S6 layers are typically implemented using efficient scan (parallel-prefix) algorithms that parallelize well on modern hardware. However, their recurrent-style execution can make them highly sensitive to quantization and numerical instability
+\cite{xuMambaQuantQuantizingMamba2025,tegonFEMBAEdgePhysiologicallyAware2026a}.
+
+Prior work has explored common optimizations for Mamba such as quantization \cite{xuMambaQuantQuantizingMamba2025}, pruning, and knowledge distillation \cite{shihabEfficientUnstructuredPruning}. Notably, MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} implemented PyTorch-style inference for Mamba directly in C and evaluated execution on ESP32-S3 and STM32 microcontrollers. While this verified basic execution feasibility, this implementation is highly model dependent, making deep architectural changes and hardware-specific optimizations cumbersome to explore.
 
 This paper addresses the following overarching research question:
 \textit{How can Mamba architectures be adapted and optimized for efficient inference on resource-constrained microcontrollers?}
@@ -19,4 +35,4 @@ To address this comprehensively, we formulate three specific sub-questions:
 \end{itemize}
 To answer these questions, we profile deployment strategies on actual hardware, isolate the underlying hardware bottlenecks, and evaluate the efficacy of translating typically GPU-centric optimizations to microcontroller architectures.
 
-The remainder of this paper is organized as follows. Section~\ref{sec:background} surveys related work and foundational background. Section~\ref{sec:methodology} details our proposed optimizations and architectural modifications, while Section~\ref{sec:experimental_setup} outlines how the experiments were conducted. Experimental results and a subsequent discussion are presented in Section~\ref{sec:results_and_discussion}. Finally, Section~\ref{sec:responsible_research} addresses ethical considerations, and Section~\ref{sec:conclusion} concludes the paper with directions for future work.
+The remainder of this paper is organized as follows. Section~\ref{sec:background} surveys related work and foundational background. Section~\ref{sec:methodology} details our proposed optimizations and architectural modifications, while Section~\ref{sec:experimental_setup} outlines how the experiments were conducted. Experimental results are presented in Section~\ref{sec:results}. Their discussion and limitations are described in Section~\ref{sec:discussion}. Finally, Section~\ref{sec:responsible_research} addresses ethical considerations, and Section~\ref{sec:conclusion} concludes the paper with directions for future work.

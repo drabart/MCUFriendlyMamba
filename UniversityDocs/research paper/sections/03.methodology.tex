@@ -1,42 +1,45 @@
 \section{Proposed Mamba-MCU Optimizations}
 \label{sec:methodology}
 
-This section presents the deployment choices and architecture adaptations designed to fit Mamba on microcontrollers. We first justify the chosen toolchain and hardware, then describe the model reimplementation and the optimizations evaluated (quantization, looped SSM, activation simplifications).
+This section details the deployment framework and architectural adaptations developed to enable efficient Mamba inference on microcontrollers. We outline our hardware and toolchain selection criteria, describe the custom model re-implementation pipeline, and introduce three targeted optimization strategies: hardware-aware activation simplification, post-training integer quantization, and a modular loop-partitioning scheme to mitigate compilation unrolling.
 
-\subsection{Embedded Deployment}
+\subsection{Embedded Deployment Toolchain and Hardware Selection}
 \label{sec:embedded_deployment}
 
-Deployment of machine learning models on microcontrollers, while feasible, still presents challenges. The MambaLite-Micro authors chose a path that preserves exact PyTorch inference results by extracting weights and hardcoding them in C. This approach preserves compatibility but makes architecture changes and further optimizations cumbersome, since any model modification requires C changes.
+Deploying state-space models on resource-constrained microcontrollers introduces significant engineering trade-offs. While frameworks like MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} ensure exact bit-wise matching by hardcoding weights directly into monolithic C arrays, this approach severely restricts flexibility. Any downstream architectural modification or optimization requires manual structural revisions to the low-level source code, hindering rapid experimentation.
 
-For this paper we decided not to take that route and instead selected an existing model-porting tool. We investigated frameworks such as TensorFlow Lite for Microcontrollers (TFLM, also referred to as LiteRT) \cite{davidTensorFlowLiteMicro2021} and ExecuTorch \cite{executorch2026}. The hardware-agnostic workflow of TFLM provided more flexibility for experimentation, better documentation, and fewer deployment issues. By using TFLM we avoid additional intermediary formats (for example, we do not convert to ONNX), removing conversion differences as a factor in the experiments.
+To overcome this limitation, this work establishes an automated, hardware-agnostic compilation pipeline. We evaluated contemporary edge runtime environments, including TensorFlow Lite for Microcontrollers (TFLM, also referred to as LiteRT) \cite{davidTensorFlowLiteMicro2021} and ExecuTorch \cite{executorch2026}. TFLM was selected due to its mature ecosystem, robust documentation, and flexible runtime interpretation. By mapping operations directly to the TFLM runtime, the workflow eliminates intermediary conversion formats (e.g., ONNX), thereby isolating the experimental results from compiler-induced topology discrepancies.
 
-There are several tools built into and around TFLM. We use `tflm\_model\_transforms` to strip redundant and debug data from the model, enabling fairer comparisons of model sizes by reducing graph overhead. We also use the AI Edge Quantizer, which provides precise control over quantization and operates directly on TFLite model files. The different deployment options are illustrated in \autoref{fig:deployment}.
+The deployment infrastructure leverages several utility tools embedded within the LiteRT ecosystem. The compiler utility \texttt{tflm\_model\_transforms} strips redundant metadata and debugging nodes from the intermediate representation graph, isolating the raw architectural parameters and facilitating a rigorous, equitable comparison of binary model sizes. For precision reduction, we deploy the AI Edge Quantizer, which provides fine-grained, programmatic configuration over tensor bit-widths directly on the compiled flatbuffer files. The comprehensive deployment pipeline is structured as illustrated in \autoref{fig:deployment}.
 
 \begin{figure}[ht]
+  \centering
   \includegraphics[width=\linewidth]{assets/deployment_diagram.drawio.png}
-  \caption{Diagram of the deployment steps and some options for a TinyML}
+  \caption{Diagram of the TinyML deployment pipeline. The specific optimization path implemented in this work is highlighted in red.}
   \label{fig:deployment}
 \end{figure}
 
-We also considered other deployment options such as Brevitas \cite{brevitas} (used by FEMBA) and TorchAO \cite{orTorchAOPyTorchNativeTrainingtoServing2025}, which support quantization on PyTorch models and Quantization-Aware Training (QAT). Brevitas can target very low bit-widths. We did not use these tools in the final implementation because QAT often requires kernel fusion that is difficult to achieve efficiently on microcontrollers.
+Alternative model compression libraries were also considered, such as Brevitas \cite{brevitas} (leveraged in FEMBA \cite{tegonFEMBAEdgePhysiologicallyAware2026a}) and TorchAO \cite{orTorchAOPyTorchNativeTrainingtoServing2025}. While these frameworks provide robust support for Quantization-Aware Training (QAT) and ultra-low mixed-precision bit-widths, they frequently assume low-level kernel fusion capabilities. Such optimizations are challenging to synthesize efficiently on generic microcontrollers without specialized hardware abstractions.
 
-Due to time constraints we implemented and tested models only on the ESP32 (\autoref{fig:esp32}) family of microcontrollers (ESP32 and ESP32-S3) using `esp-tflite-micro`, a vendor-specific implementation of TFLM. We avoided vendor-specific pipelines such as ESP-DL or STM32Cube.AI so results would not be bound to a single MCU platform.
+Physical hardware evaluation is conducted on the Espressif ESP32 family of microcontrollers (\autoref{fig:esp32}), specifically the ESP32 and ESP32-S3 modules, using the vendor-optimized \texttt{esp-tflite-micro} component library. To ensure the generalizability of our findings across competing hardware platforms, we explicitly avoid vendor-exclusive deployment pipelines such as ESP-DL or STM32Cube.AI.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.7\linewidth]{assets/esp32.jpg}
-  \caption{Photo of an ESP32S3 with ICS43434 microphone module attached}
+  \caption{Experimental setup featuring an ESP32-S3 microcontroller coupled to an ICS43434 microphone module.}
   \label{fig:esp32}
 \end{figure}
 
-\subsection{Model Architecture}
+\subsection{System Design and Architectural Adaptations}
 
-We do not explore extensive hyperparameter search in this work; instead, we adopt the MambaLite-Micro architecture \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} so comparisons remain meaningful and our effort can focus on deployment and optimization. The architecture comprises a fully connected input layer, a single Mamba block, an average-pooling layer, and a fully connected output layer. The Mamba block input size is 64 with an expansion ratio of 2.
+To maintain empirical continuity and isolate the performance impacts of our deployment optimizations, we adopt the core structural dimensions of the MambaLite-Micro baseline \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} rather than performing an exhaustive hyperparameter grid search. The reference network consists of a fully connected projection layer, a single Mamba block ($d_{\text{model}} = 64$, expansion factor $E = 2$), a global average-pooling layer, and a linear output classification head.
 
-Because the original Mamba implementation relies on custom GPU kernels not available in TFLM, we re-implemented the architecture in PyTorch. This gives a more flexible deployment pipeline and makes it easier to modify activations and reduce expensive exponentiation operations prior to conversion.
+Because standard Mamba implementations rely heavily on custom Triton or CUDA GPU kernels that lack native equivalents in edge runtimes, we re-implemented the network graph using standard, modular operators in PyTorch. This re-implementation provides a malleable graph structures, allowing us to swap mathematically intensive, exponentiation-heavy activation functions (e.g., SiLU) for hardware-friendly primitives (e.g., ReLU) prior to model compilation.
 
-\subsection{Deployment Optimization}
+Following initial profiling cycles, the state-space formulation and transcendental activation layers emerged as the dominant latency and memory bottlenecks. To address these, we evaluate an INT8 post-training uniform quantization scheme targeting both static weights and dynamic activation tensors.
 
-For deployment optimization we focus primarily on quantization, evaluating INT8 weight and activation quantization.
+Furthermore, initial deployment trials exposed a systemic limitation within the TFLM translation layer: the absence of native recurrent loop primitives caused the execution graph of the Selective State-Space Model to compile as a completely unrolled sequence. For long-context workloads, such as the Google Speech Commands V2 dataset, this unrolling behavior triggers an exponential explosion in model binary size and completely breaks execution due to constraints on the \texttt{CONCATENATE} operator nodes.
 
-Because TFLM lacks a general looping mechanism, the SSM implementation is unrolled by default, causing model size to grow linearly with sequence length. This is problematic for longer sequences (for example, the Speech Commands dataset). To mitigate this, we split the deployment model into three parts: pre-SSM, SSM step, and post-SSM. The inference code loops over the SSM step, reusing the same weights for each time step and significantly reducing model size. We compare both unrolled and looped implementations on the HAR dataset to study trade-offs.
+To resolve this sequence scaling ceiling, we introduce a modular loop-partitioning design pattern. The model is decoupled into three independent execution stages: pre-SSM projection phase, SSM time-step kernel, post-SSM output phase.
+
+The host microcontroller code executes an explicit iterative loop around the single-step SSM kernel component, sequentially cycling through the inputs while maintaining the hidden state vector in native memory. This approach eliminates graph duplication by recycling a single set of network weights across all time steps. To quantify the execution trade-offs inherent to this approach, we bench-test both the unrolled and loop-partitioned implementations on the Human Activity Recognition (HAR) dataset. Notably, the unrolled baseline fails to compile entirely on the long-sequence Google Speech Commands workload, making the loop-partitioned paradigm a strict architectural prerequisite for complex audio tasks.

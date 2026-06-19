@@ -1,45 +1,22 @@
 \section{Related Work and Background}
 \label{sec:background}
 
-This section reviews TinyML constraints and recent Mamba work relevant to MCU deployment. We summarize common TinyML optimizations (quantization, pruning, distillation), then focus on Mamba's SSM-based design and prior deployment attempts that motivate our contributions.
+This section reviews TinyML constraints and recent Mamba literature relevant to MCU deployment. We summarize common TinyML optimizations—focusing on quantization, pruning, and distillation—and detail prior deployment attempts that motivate our contributions.
 
-\subsection{TinyML}
+\subsection{TinyML Constraints and Optimization Strategies}
 
-TinyML concerns the design, optimization, and deployment of machine learning models on highly resource-constrained embedded devices such as microcontrollers. Models for these devices are typically trained with the target constraints in mind and then optimized for inference, since typical devices often have less than 256 KB of Data RAM (DRAM).
+Given the limited computational throughput of MCUs, minimizing latency is a critical operational priority for real-time edge processing (e.g., audio or accelerometer streams). Many complex deep learning architectures rely on operations such as exponentiation (e.g., Softmax, SiLU) or trigonometric functions (e.g., Tanh). On microcontrollers, computing these functions non-natively introduces substantial execution overhead. Replacing them with hardware-friendly alternatives like ReLU can provide up to a 25$\times$ computational speedup under resource-constrained conditions \cite{cassimonDesigningResourceconstrainedNeural2020}.
 
-These constraints limit which architectures are practical. Common choices include convolutional neural networks (CNNs) and recurrent neural networks (RNNs), which can be more parameter-efficient than multilayer perceptrons (MLPs) \cite{trileEfficientNeuralNetworks2026}.
+The lack of robust or fast hardware floating-point units (FPUs) on many MCUs necessitates post-training or aware quantization. Quantization reduces the precision of weights and activations from 32-bit floating-point (FP32) formats to lower-bit fixed-point representations, such as 8-bit or 4-bit integers (INT8/INT4). While this strategy substantially reduces the model's memory footprint, these gains often incur an accuracy penalty. Furthermore, the final memory savings are not always directly proportional to the reduced bit-width due to underlying software graph and format conversion overheads \cite{dokicInferenceSpeedQuantisation2020}. Careless precision reduction can yield severe accuracy drops, particularly for neural network layers that were not structurally designed with quantization bounds in mind \cite{xuMambaQuantQuantizingMamba2025}.
 
-MCUs have limited computational power, so latency is a critical concern. Many TinyML applications (for example, audio or accelerometer streams) require real-time processing, which makes models that rely on expensive mathematical operations harder to deploy. This is especially true for activation functions using trigonometric terms (e.g., Tanh) or exponentiation (e.g., Softmax, SiLU) \cite{cassimonDesigningResourceconstrainedNeural2020}.
+Other optimization mechanisms include network pruning, knowledge distillation, and low-rank factorization \cite{suwannaphongOptimisingTinyMLQuantization2025}. Pruning algorithms eliminate redundant weight channels, whereas knowledge distillation transfers latent representations from a larger teacher network into a compact student model. Although highly effective, applying these methods to alternative structures is often complex, and achieved compression ratios vary significantly depending on the target task and network layout \cite{shihabEfficientUnstructuredPruning}.
 
-The limited or slow floating-point support on many MCUs makes quantization an important optimization strategy. Quantization reduces the precision of weights and activations from 32-bit floats to lower-bit formats (for example, 8-bit or 4-bit integers), which can substantially reduce model size and memory usage. These gains can come at the cost of accuracy, and memory savings are not always proportional due to format and graph overheads \cite{dokicInferenceSpeedQuantisation2020}. In some cases, careless quantization can lead to large accuracy drops, especially for models not designed with quantization in mind \cite{xuMambaQuantQuantizingMamba2025}.
+\subsection{Mamba Architecture and Edge Deployment Efforts}
 
-Other strategies include pruning, knowledge distillation, and low-rank factorization \cite{suwannaphongOptimisingTinyMLQuantization2025}. Pruning removes redundant parameters, while knowledge distillation transfers knowledge from a larger teacher model into a smaller student. These techniques can be effective but are often more complex to apply, and reported size reductions vary by method and task \cite{shihabEfficientUnstructuredPruning}.
+Most prior literature exploring Mamba model compression has focused on mobile or embedded GPUs rather than MCU-class systems. For example, the Physics-Guided Tiny-Mamba Transformer \cite{liPhysicsGuidedTinyMambaTransformer2026} compresses its topology down to $\sim$0.5M parameters for deployment on the NVIDIA Jetson Nano; Tiny-ViM \cite{maTinyViMFrequencyDecoupling2025} targets vision tasks at a scale of $\sim$5M parameters; and FEMBA \cite{tegonFEMBAEdgePhysiologicallyAware2026a} utilizes aggressive quantization targeting a $\sim$7.8M parameter model. While these works demonstrate that standard optimizations like quantization, pruning, and distillation are viable for State-Space Models, the resulting architectures remain orders of magnitude too large for typical microcontroller memory budgets.
 
-\subsection{Mamba architecture}
+Efforts such as LightMamba \cite{wangLightMambaResourceEfficientDeepLearning2026} explore Selective State-Space Models for specialized, resource-constrained tasks like ultra-wideband positioning, but they stop short of evaluating physical microcontroller deployments. MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} is the only previous work that we are aware off that actually achieves successful execution on a microcontroller. It uses ESP32-S3 and STM32 MCUs and a custom C mamba implementation, but its strict adherence to PyTorch-style kernels complicates deep architectural modifications. Consequently, deployment tooling and structural co-design methodologies for Mamba models on MCUs remain immature.
 
-The Mamba architecture \cite{guMambaLinearTimeSequence2024} is a recent proposal that blends convolutional and recurrent design ideas to capture long-range dependencies while keeping a smaller memory footprint than Transformers. A top-level diagram of a Mamba block appears in \autoref{fig:mamba}.
+\subsection{Research Gap}
 
-\begin{figure}[ht]
-  \includegraphics[width=\linewidth]{assets/mamba.jpg}
-  \caption{Diagram of the Mamba block}
-  \label{fig:mamba}
-\end{figure}
-
-Mamba's main building block is a Selective State-Space Model (S6) layer, which captures long-range structure while avoiding the quadratic complexity of attention. The S6 formulation can be written as
-
-$$
-\begin{aligned}
-  h_t &= \overline{A} h_{t-1} + \overline{B} x_t \\
-  y_t &= C h_t + D x_t
-\end{aligned}
-$$
-
-In Mamba the S6 matrices are conditioned on the input, allowing the dynamics to adapt over time. S6 layers can be implemented using efficient scan (parallel-prefix) algorithms that parallelize well on modern hardware, but their recurrent-style structure can make them sensitive to quantization and numerical issues on deeply constrained hardware \cite{xuMambaQuantQuantizingMamba2025,tegonFEMBAEdgePhysiologicallyAware2026a}.
-
-Most prior work reducing Mamba model sizes targets mobile or embedded GPUs rather than MCUs. For example, Physics-Guided Tiny-Mamba Transformer \cite{liPhysicsGuidedTinyMambaTransformer2026} is reduced to ~0.5M parameters for Jetson Nano, Tiny-ViM \cite{maTinyViMFrequencyDecoupling2025} targets ~5M parameters for vision, and FEMBA \cite{tegonFEMBAEdgePhysiologicallyAware2026a} applies aggressive quantization at ~7.8M parameters. These models remain far larger than typical MCU budgets.
-
-Some efforts (e.g., LightMamba \cite{wangLightMambaResourceEfficientDeepLearning2026}) explore Selective State-Space Models for resource-constrained tasks such as ultra-wideband positioning, but demonstrations on actual microcontrollers are limited. MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} implements PyTorch-style inference for Mamba in C and runs on ESP32-S3 and STM32 MCUs, preserving compatibility but making architecture changes and further optimizations more cumbersome. Overall, deployment tooling for Mamba on MCUs remains immature.
-
-\subsection{Research gap}
-
-Two primary gaps motivate this work. First, many TinyML optimization techniques exist, but their applicability to Mamba is not well understood on MCU-class hardware. Second, while MambaLite-Micro demonstrates feasibility, it does not explore architecture modifications or deployment strategies that could further reduce memory usage and latency on MCUs. This paper evaluates deployment strategies, identifies Mamba-specific bottlenecks on microcontrollers, and proposes targeted improvements.
+Two primary gaps motivate this work. First, while many TinyML optimization frameworks exist, their algorithmic behavior and stability when applied to Mamba's input-dependent recurrence are not well understood on MCU-class hardware. Second, while initial C-based engines demonstrate basic execution feasibility, they do not explore explicit graph modifications or hardware-aware activation substitutions to mitigate MCU computational bottlenecks. This paper bridges these gaps by profiling physical hardware deployments, isolating structural bottlenecks, and evaluating targeted architectural changes to make Mamba models truly viable on microcontrollers.
