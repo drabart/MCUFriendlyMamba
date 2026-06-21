@@ -1,7 +1,7 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Edge AI aims to improve latency, privacy and decentralize machine learning inference by running models directly on user devices. TinyML \cite{wardenTinyMLMachineLearning2019} focuses on the extreme end of this spectrum, designing models that run on microcontrollers (MCUs). MCUs are severely resource-constrained: typical devices provide one or two CPU cores (usually clocked below 240~MHz) and often 512~KB or less of RAM, preventing them from hosting large models or full-precision weights. Furthermore, low latency is essential because many TinyML applications, such as audio or video streams, require real-time processing.
+Edge AI aims to improve latency, privacy and decentralize machine learning inference by running models directly on user devices. TinyML \cite{wardenTinyMLMachineLearning2019} focuses on the extreme end of this spectrum, designing models that run on microcontrollers (MCUs). MCUs are severely resource-constrained: typical devices provide one or two CPU cores (usually clocked below 240~MHz) and often 256~KB or less of RAM, preventing them from hosting large models or full-precision weights. Furthermore, low latency is essential because many TinyML applications, such as audio or video streams, require real-time processing.
 
 The extreme memory limitations of microcontrollers make architectural designs with super-linear memory scaling poorly suited for TinyML applications. Consequently, convolutional neural networks (CNNs) and recurrent neural networks (RNNs) have traditionally remained the dominant choices due to their superior parameter efficiency relative to standard multilayer perceptrons (MLPs) or Transformer-based models \cite{trileEfficientNeuralNetworks2026}. However, the recently proposed Mamba architecture \cite{guMambaLinearTimeSequence2024} has emerged as a promising alternative to Transformers for long-context tasks, blending convolutional and recurrent design ideas to capture long-range dependencies while maintaining a linear memory footprint. A high-level diagram of this Mamba block architecture is presented in \autoref{fig:mamba}.
 
@@ -20,7 +20,8 @@ In Mamba, the S6 matrices are conditioned on the input, allowing the hidden stat
 Prior work has explored common optimizations for Mamba such as quantization \cite{xuMambaQuantQuantizingMamba2025}, pruning, and knowledge distillation \cite{shihabEfficientUnstructuredPruning}. Notably, MambaLite-Micro \cite{xuMambaLiteMicroMemoryOptimizedMamba2025} implemented PyTorch-style inference for Mamba directly in C and evaluated execution on ESP32-S3 and STM32 microcontrollers. While this verified basic execution feasibility, the implementation is highly model dependent, making deep architectural changes and hardware-specific optimizations cumbersome to explore.
 
 This paper addresses the following overarching research question:
-\textit{How can Mamba architectures be adapted and optimized for efficient inference on resource-constrained microcontrollers?}
+\textit{\textbf{How can Mamba architectures be adapted and optimized for efficient inference on resource-constrained microcontrollers?}}
+
 To address this comprehensively, we formulate three specific sub-questions:
 \begin{itemize}
   \item \textbf{RQ1:} What are the primary memory and computational bottlenecks when deploying Mamba models on microcontrollers?
