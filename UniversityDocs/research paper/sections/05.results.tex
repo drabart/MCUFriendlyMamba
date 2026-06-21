@@ -5,7 +5,7 @@ This section presents our empirical findings across four primary metrics: classi
 
 \subsection{Model Accuracy and Storage Fingerprint}
 
-We first validated the baseline classification performance on a development PC using our custom PyTorch implementation of the Mamba block. Training achieved validation accuracies of 98.6\% on the Human Activity Recognition (HAR) dataset and 90.09\% on the Keyword Spotting (KWS) audio task. Following export to the TensorFlow Lite (\texttt{.tflite}) flatbuffer format, accuracy was profiled before and after uniform \texttt{INT8} post-training quantization across both full (unrolled) and split topologies (\autoref{tab:accuracy-results}).
+We first validated the baseline classification performance on a development PC using our custom PyTorch implementation of the Mamba block. Training achieved validation accuracies of 98.6\% on the HAR dataset and 90.09\% on the KWS audio task. Following export to the TensorFlow Lite (\texttt{.tflite}) flatbuffer format, accuracy was profiled before and after uniform \texttt{INT8} post-training quantization across both full (unrolled) and split topologies (\autoref{tab:accuracy-results}).
 
 % Accuracy table
 \begin{table}[ht]
@@ -26,7 +26,7 @@ We first validated the baseline classification performance on a development PC u
   \end{tabular}
 \end{table}
 
-The empirical accuracy trade-offs demonstrate distinct, topology-dependent sensitivities to low-bit fields. While the HAR model preserves competitive fidelity under quantization, the KWS models experience a sharper performance drop of nearly 4 percentage points under \texttt{INT8} precision. This divergence reinforces known complexities in quantizing State-Space Models (SSMs) without custom scaling layers \cite{xuMambaQuantQuantizingMamba2025}.
+The empirical accuracy trade-offs demonstrate distinct, topology-dependent sensitivities to low-bit fields. While the HAR model preserves competitive fidelity under quantization, the KWS models experience a sharper performance drop of nearly 4 percentage points under \texttt{INT8} precision. This divergence reinforces known complexities in quantizing SSMs without custom scaling layers \cite{xuMambaQuantQuantizingMamba2025}.
 
 Crucially, the data reveals that split (looped) configurations suffer higher quantization-induced accuracy drops than their unrolled counterparts. This behavior is structurally determined: because an unrolled computational graph handles each sequential step as an independent tensor node, the static post-training quantization algorithm can compute separate, granular calibration scales and zero-points for individual instances of identical operators. Conversely, our split topology forces every iterative timestep to share a singular, globally calibrated set of quantized parameters, causing rounding errors to accumulate aggressively across the recurrent SSM boundary.
 
@@ -95,7 +95,7 @@ The \textit{float} model variant achieved superior classification fidelity while
   \label{fig:har_latency}
 \end{figure}
 
-A major finding of our on-device profiling is that the \texttt{INT8} quantized implementations are significantly slower than their \texttt{FLOAT32} equivalents, with integer execution times nearly doubling across identical layers (\autoref{fig:har_latency}). This counter-intuitive execution behavior is explained by the operation breakdown in \autoref{fig:operation_performance}. The runtime graph is completely dominated by element-wise multiplication (\texttt{MUL}) instructions. Although the ESP32-S3 contains hardware-level vector extensions capable of accelerating integer arithmetic, the standard, non-fused TFLM runtime infrastructure introduces extensive quantization/dequantization scaling and memory re-indexing overhead around every discrete scalar multiplication node. This software wrapper overhead ultimately overrides the raw clock-cycle efficiency of the integer execution unit.
+A major finding of our on-device profiling is that the \texttt{INT8} quantized implementations are significantly slower than their \texttt{FLOAT32} equivalents, with integer execution times nearly doubling across identical layers (\autoref{fig:har_latency}). This counter-intuitive execution behavior is explained by the operation breakdown in \autoref{fig:operation_performance}. The runtime graph is completely dominated by element-wise multiplication (\texttt{MUL}) instructions. Although the ESP32-S3 contains hardware-level vector extensions capable of accelerating integer arithmetic, the standard, non-fused TFLM runtime infrastructure introduces extensive quantization/dequantization scaling and memory re-indexing overhead around each discrete scalar multiplication node. This software wrapper overhead ultimately overrides the raw clock-cycle efficiency of the integer execution unit.
 
 Furthermore, platform optimization libraries demonstrated notable instability; activating vendor-specific \texttt{ESP\_NN} kernel accelerations caused measured accuracy on the HAR task to drop from 96\% to 56\%. Because this issue was strictly isolated to this specific layer graph, a separate baseline code path (INT8 ANSI) was profiled to isolate the compiler bug.
 

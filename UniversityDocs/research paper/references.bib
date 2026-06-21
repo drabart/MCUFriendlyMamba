@@ -328,21 +328,13 @@
 }
 
 @misc{xuMambaLiteMicroMemoryOptimizedMamba2025,
-  title       = {{{MambaLite-Micro}}: {{Memory-Optimized Mamba Inference}} on {{MCUs}}},
-  shorttitle  = {{{MambaLite-Micro}}},
-  author      = {Xu, Hongjun and Xia, Junxi and Yang, Weisi and Sui, Yueyuan and Xia, Stephen},
-  date        = {2025-09-05},
-  eprint      = {2509.05488},
-  eprinttype  = {arXiv},
-  eprintclass = {cs},
-  doi         = {10.48550/arXiv.2509.05488},
-  url         = {http://arxiv.org/abs/2509.05488},
-  urldate     = {2026-04-19},
-  abstract    = {Deploying Mamba models on microcontrollers (MCUs) remains challenging due to limited memory, the lack of native operator support, and the absence of embeddedfriendly toolchains. We present, to our knowledge, the first deployment of a Mamba-based neural architecture on a resource-constrained MCU, a fully C-based runtime-free inference engine: MambaLite-Micro. Our pipeline maps a trained PyTorch Mamba model to on-device execution by (1) exporting model weights into a lightweight format, and (2) implementing a handcrafted Mamba layer and supporting operators in C with operator fusion and memory layout optimization. MambaLite-Micro eliminates large intermediate tensors, reducing 83.0\% peak memory, while maintaining an average numerical error of only 1.7 × 10−5 relative to the PyTorch Mamba implementation. When evaluated on keyword spotting (KWS) and human activity recognition (HAR) tasks, MambaLite-Micro achieved 100\% consistency with the PyTorch baselines, fully preserving classification accuracy. We further validated portability by deploying on both ESP32S3 and STM32H7 microcontrollers, demonstrating consistent operation across heterogeneous embedded platforms and paving the way for bringing advanced sequence models like Mamba to real-world resource-constrained applications.},
-  langid      = {english},
-  pubstate    = {prepublished},
-  keywords    = {Computer Science - Artificial Intelligence,Computer Science - Machine Learning,Computer Science - Operating Systems},
-  file        = {/home/drabart/Zotero/storage/4VIKPRAF/Xu et al. - 2025 - MambaLite-Micro Memory-Optimized Mamba Inference on MCUs.pdf}
+  title      = {{{MambaLite-Micro}}: {{Memory-Optimized Mamba Inference}} on {{MCUs}}},
+  shorttitle = {{{MambaLite-Micro}}},
+  author     = {Xu, Hongjun and Xia, Junxi and Yang, Weisi and Sui, Yueyuan and Xia, Stephen},
+  date       = {2025-09-05},
+  note       = {arXiv preprint \url{https://arxiv.org/abs/2509.05488}},
+  langid     = {english},
+  pubstate   = {prepublished}
 }
 
 @misc{xuMambaQuantQuantizingMamba2025,

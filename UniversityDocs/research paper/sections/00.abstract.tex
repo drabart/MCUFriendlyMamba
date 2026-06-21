@@ -1,11 +1,9 @@
 \begin{abstract}
   \label{sec:abstract}
 
-  As machine learning expands into diverse domains, TinyML has emerged as a crucial paradigm for deploying models on highly resource-constrained microcontrollers, which typically feature less than 256~KB of RAM and 240~MHz CPUs. However, executing complex mathematical operations on these devices remains a significant challenge, necessitating novel model designs and hardware-aware optimization.
+  As machine learning expands into diverse domains, TinyML has emerged as a crucial paradigm for deploying models on highly resource-constrained microcontrollers, which typically feature less than 256~KB of RAM. However, executing complex mathematical operations on these devices remains a significant challenge, necessitating novel model designs and hardware-aware optimization.
   The Mamba architecture, built around State-Space Models, is a promising candidate due to its compact parameterization and strong performance on long-context tasks. Nevertheless, Mamba was originally designed for highly parallelized GPUs, making its adaptation for TinyML non-trivial. This paper evaluates Mamba deployment strategies on microcontrollers using TensorFlow Lite Micro.
-  We propose architecture modifications and optimization techniques tailored specifically to microcontroller constraints. Our deployment of a quantized Mamba model achieves a 60.4~KB peak RAM footprint on a Keyword Spotting task—a 74\% memory reduction compared to prior work (MambaLite-Micro). Furthermore, we analyze the trade-offs of quantization, demonstrating that while it substantially reduces memory, it can introduce latency overhead on hardware lacking acceleration of INT8 operations.
+  We propose architecture modifications and optimization techniques tailored specifically to microcontroller constraints. Our deployment of a quantized Mamba model achieves a 60.4~KB peak RAM footprint on a Keyword Spotting task—a 74\% memory reduction compared to state-of-the-art work (MambaLite-Micro). Furthermore, we analyze the trade-offs of quantization, demonstrating that while it substantially reduces memory, it can introduce latency overhead on hardware lacking acceleration of INT8 operations.
   To mitigate code size and loop-unrolling overheads, we introduce a model-splitting technique that enables the execution of larger models. Our findings demonstrate that while Mamba is a viable architecture for TinyML, further research is required to fully optimize SSM implementations for edge hardware.
-
-  \textbf{Keywords:} TinyML, Mamba, microcontroller, Edge AI
 
 \end{abstract}
