@@ -179,32 +179,6 @@ void audio_process()
     {
         printf("Predicted: %s (Confidence: %.2f)\n", keyword, confidence);
     }
-
-    // We only act if the model is confident enough
-    if (current_time - last_added_time > 1000 && (confidence >= 0.70f || (predicted_class == 29 && confidence >= 0.50f)))
-    {
-        last_added_time = current_time;
-        if (mapped_number != -1)
-        {
-            accumulated_digits.push_back(mapped_number);
-            printf("\nLogged: Added %d (Keyword: %s, Conf: %.2f)", mapped_number, keyword, confidence);
-        }
-        else if (strcmp(keyword, "backward") == 0)
-        {
-            if (!accumulated_digits.empty())
-            {
-                accumulated_digits.pop_back();
-                printf("\nLogged: Removed last digit (Keyword: backward, Conf: %.2f)", confidence);
-            }
-            else
-            {
-                printf("\nLogged: Attempted 'backward' but number is already empty (Conf: %.2f)", confidence);
-            }
-        }
-
-        // Always redraw the updated sequence right at the bottom line
-        print_accumulated_number();
-    }
 }
 
 void kws_test()
